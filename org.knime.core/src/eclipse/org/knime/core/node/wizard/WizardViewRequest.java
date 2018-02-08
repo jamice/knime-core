@@ -44,33 +44,19 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   15 Dec 2017 (albrecht): created
+ *   1 Feb 2018 (albrecht): created
  */
-package org.knime.core.node.interactive;
+package org.knime.core.node.wizard;
 
-import java.util.concurrent.Future;
+import org.knime.core.node.interactive.ViewRequest;
+import org.knime.core.node.web.WebViewContent;
 
 /**
- * Interface for interactive node models which support bidirectional communication with
- * their interactive view. Esp. views can initialize requests which are processed by the node
- * model.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <REQ> The concrete class of the request object.
- * @param <RES> The concrete class of the response object.
+ * @param <RES> The concrete view content implementation acting as result value of a concrete class of this operation.
  * @since 3.6
  */
-public interface ViewRequestHandler <REQ extends ViewRequest<RES>, RES extends ViewContent> {
-
-    /**
-     * Handles a view-initialized request. This can be used for
-     * example for lazily loading data or other processing handled outside
-     * the view implementation.
-     * @param request The request object, stating which operation to perform
-     * @return a future response object as defined by the view implementation, this can also be
-     * a regular ViewRepresentation object which is also used in unidirectional interactive nodes.
-     */
-    //TODO: future or job?
-    public Future<RES> handleRequest(REQ request);
+public interface WizardViewRequest<RES extends WebViewContent> extends ViewRequest<RES>, WebViewContent {
 
 }

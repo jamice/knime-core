@@ -53,6 +53,7 @@ import java.io.File;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
+import org.eclipse.swt.browser.BrowserFunction;
 import org.eclipse.swt.browser.ProgressEvent;
 import org.eclipse.swt.browser.ProgressListener;
 import org.eclipse.swt.events.DisposeEvent;
@@ -489,5 +490,28 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
         String escapedError = error.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ");
         String showErrorCall = creator.wrapInTryCatch(creator.getNamespacePrefix() + showErrorMethod + "('" + escapedError + "');");
         m_browser.execute(showErrorCall);
+    }
+
+    private class ViewRequestFunction extends BrowserFunction {
+
+        /**
+         * @param browser
+         * @param name
+         */
+        public ViewRequestFunction(final Browser browser, final String name) {
+            super(browser, name);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Object function(final Object[] arguments) {
+            if (arguments == null || arguments.length < 1) {
+                return false;
+            }
+            return handleViewRequest((String)arguments[0]);
+        }
+
     }
 }

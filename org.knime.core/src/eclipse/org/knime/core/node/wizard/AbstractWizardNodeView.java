@@ -49,10 +49,15 @@
 package org.knime.core.node.wizard;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.core.runtime.IConfigurationElement;
@@ -338,6 +343,54 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      * @since 3.4
      */
     protected abstract boolean showApplyOptionsDialog(final boolean showDiscardOption, final String title, final String message);
+
+    /**
+     *
+     * @param jsonRequest the json serialized request object string
+     * @return true, if the request could be processed correctly, false otherwise
+     * @since 3.6
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    protected final boolean handleViewRequest(final String jsonRequest) {
+        WizardNode<REP,VAL> model = getModel();
+        if (!(model instanceof WizardViewRequestHandler)) {
+            return false;
+        }
+        WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
+        try {
+            req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
+            Future<? extends WebViewContent> future = ((WizardViewRequestHandler)model).handleRequest(req);
+            if (future instanceof CompletableFuture) {
+                //async handling
+                ((CompletableFuture)future).thenAcceptAsync(res -> respondToViewRequest((WebViewContent)res));
+            } else {
+                //block
+                respondToViewRequest(future.get());
+            }
+            return true;
+        } catch (Exception ex) {
+            // TODO log error
+            return false;
+        }
+    }
+
+    private final void respondToViewRequest(final WebViewContent response) {
+        OutputStream stream;
+        try {
+            stream = response.saveToStream();
+            if (stream instanceof ByteArrayOutputStream) {
+                String responseString = ((ByteArrayOutputStream)stream).toString("UTF-8");
+                respondToViewRequest(responseString);
+            }
+        } catch (IOException ex) {
+            LOGGER.error("Could not update view: " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * @since 3.6
+     */
+    protected abstract void respondToViewRequest(final String response);
 
     /**
      * Queries extension point for additional {@link AbstractWizardNodeView} implementations.

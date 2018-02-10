@@ -104,6 +104,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
     private Shell m_shell;
 
     private Browser m_browser;
+    private BrowserFunction m_viewRequestCallback;
     private boolean m_viewSet = false;
     private boolean m_initialized = false;
     private String m_title;
@@ -329,6 +330,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
                     }
                 });
                 setBrowserURL();
+                m_viewRequestCallback = new ViewRequestFunction(m_browser, "viewRequest");
             }
         });
 
@@ -387,11 +389,15 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
      */
     @Override
     public final void closeView() {
-        if ((m_shell != null) && !m_shell.isDisposed()) {
+        if (m_viewRequestCallback != null && !m_viewRequestCallback.isDisposed()) {
+            m_viewRequestCallback.dispose();
+        }
+        if (m_shell != null && !m_shell.isDisposed()) {
             m_shell.dispose();
         }
         m_shell = null;
         m_browser = null;
+        m_viewRequestCallback = null;
         m_viewSet = false;
         // do instanceof check here to avoid a public discard method in the ViewableModel interface
         if (getViewableModel() instanceof SubnodeViewableModel) {
@@ -492,6 +498,14 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
         m_browser.execute(showErrorCall);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void respondToViewRequest(final String response) {
+        LOGGER.info("Sending response to view: " + response);
+    }
+
     private class ViewRequestFunction extends BrowserFunction {
 
         /**
@@ -514,4 +528,5 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
         }
 
     }
+
 }

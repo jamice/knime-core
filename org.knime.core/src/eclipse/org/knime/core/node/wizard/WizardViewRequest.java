@@ -59,4 +59,10 @@ import org.knime.core.node.web.WebViewContent;
  */
 public interface WizardViewRequest<RES extends WebViewContent> extends ViewRequest<RES>, WebViewContent {
 
+    public boolean isCancelable();
+
+    public boolean isCancelsPreviousRequest();
+
+    public boolean isPreserveOrder();
+
 }

@@ -330,7 +330,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
                     }
                 });
                 setBrowserURL();
-                m_viewRequestCallback = new ViewRequestFunction(m_browser, "viewRequest");
+                m_viewRequestCallback = new ViewRequestFunction(m_browser, "knimeViewRequest");
             }
         });
 
@@ -503,7 +503,22 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
      */
     @Override
     protected void respondToViewRequest(final String response) {
-        LOGGER.info("Sending response to view: " + response);
+        Display display = getDisplay();
+        if (display == null) {
+            // view most likely disposed
+            return;
+        }
+        display.asyncExec(new Runnable() {
+
+            @Override
+            public void run() {
+                String call = "KnimeInteractivity.respondToViewRequest(JSON.parse('" + response + "'));";
+                WizardViewCreator<REP, VAL> creator = getViewCreator();
+                call = creator.wrapInTryCatch(call);
+                m_browser.execute(call);
+            }
+
+        });
     }
 
     private class ViewRequestFunction extends BrowserFunction {

@@ -356,7 +356,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         if (!(model instanceof WizardViewRequestHandler)) {
             return false;
         }
-        LOGGER.info("Received request from view: " + jsonRequest);
+        LOGGER.debug("Received request from view: " + jsonRequest);
         WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));

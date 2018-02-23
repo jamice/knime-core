@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
@@ -70,6 +71,7 @@ import org.knime.core.node.web.WebTemplate;
 import org.knime.core.node.wizard.AbstractWizardNodeView;
 import org.knime.core.node.wizard.WizardNode;
 import org.knime.core.node.wizard.WizardViewCreator;
+import org.knime.core.node.wizard.WizardViewRequestHandler;
 import org.knime.core.node.workflow.NodeContainerState;
 import org.knime.core.node.workflow.NodeStateChangeListener;
 import org.knime.core.node.workflow.SubNodeContainer;
@@ -92,7 +94,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * @author Christian Albrecht, KNIME.com GmbH, Konstanz, Germany
  * @since 3.4
  */
-public class SubnodeViewableModel implements ViewableModel, WizardNode<JSONWebNodePage, SubnodeViewValue> {
+public class SubnodeViewableModel implements ViewableModel, WizardNode<JSONWebNodePage, SubnodeViewValue>,
+        WizardViewRequestHandler<SubnodeViewRequest, SubnodeViewResponse> {
 
     private static final NodeLogger LOGGER = NodeLogger.getLogger(SubnodeViewableModel.class);
 
@@ -470,5 +473,29 @@ public class SubnodeViewableModel implements ViewableModel, WizardNode<JSONWebNo
                 return "Validation errors present but could not be serialized: " + e.getMessage();
             }
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     * @since 3.6
+     */
+    @Override
+    public CompletableFuture<SubnodeViewResponse> handleRequest(final SubnodeViewRequest request) {
+        CompletableFuture<String> serializationResult =
+            m_spm.processViewRequest(request.getNodeID(), request.getJsonRequest(), m_container.getID());
+        return serializationResult.thenApply(response -> buildSubnodeViewResponse(request, response));
+    }
+
+    private SubnodeViewResponse buildSubnodeViewResponse(final SubnodeViewRequest request, final String jsonResponse) {
+        return new SubnodeViewResponse(request.getNodeID(), jsonResponse);
+    }
+
+    /**
+     * {@inheritDoc}
+     * @since 3.6
+     */
+    @Override
+    public SubnodeViewRequest createEmptyViewRequest() {
+        return new SubnodeViewRequest();
     }
 }

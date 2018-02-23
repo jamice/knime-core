@@ -48,7 +48,7 @@
  */
 package org.knime.core.node.interactive;
 
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface for interactive node models which support bidirectional communication with
@@ -71,6 +71,6 @@ public interface ViewRequestHandler <REQ extends ViewRequest<RES>, RES extends V
      * a regular ViewRepresentation object which is also used in unidirectional interactive nodes.
      */
     //TODO: future or job?
-    public Future<RES> handleRequest(REQ request);
+    public CompletableFuture<RES> handleRequest(REQ request);
 
 }

@@ -358,6 +358,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         }
         LOGGER.debug("Received request from view: " + jsonRequest);
         WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
+        final String errorString = "View request failed: ";
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
             Future<? extends WebViewContent> future = ((WizardViewRequestHandler)model).handleRequest(req);
@@ -370,7 +371,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
             }
             return true;
         } catch (Exception ex) {
-            // TODO log error
+            LOGGER.error(errorString + ex, ex);
             return false;
         }
     }
@@ -389,6 +390,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     }
 
     /**
+     *
+     * @param response
      * @since 3.6
      */
     protected abstract void respondToViewRequest(final String response);

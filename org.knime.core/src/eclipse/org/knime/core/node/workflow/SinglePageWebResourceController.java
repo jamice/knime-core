@@ -49,6 +49,7 @@
 package org.knime.core.node.workflow;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import org.knime.core.node.util.CheckUtils;
 import org.knime.core.node.web.ValidationError;
@@ -130,6 +131,25 @@ public class SinglePageWebResourceController extends WebResourceController {
             NodeContext.pushContext(manager);
             try {
                 return loadValuesIntoPageInternal(viewContentMap, m_nodeID, validate, useAsDefault);
+            } finally {
+                NodeContext.removeLastContext();
+            }
+        }
+    }
+
+    /**
+     * @param id
+     * @param viewRequest
+     * @return
+     * @since 3.6
+     */
+    public CompletableFuture<WebViewContent> processViewRequest(final String nodeID, final String viewRequest) {
+        WorkflowManager manager = m_manager;
+        try (WorkflowLock lock = manager.lock()) {
+            checkDiscard();
+            NodeContext.pushContext(manager);
+            try {
+                return processViewRequestInternal(m_nodeID, nodeID, viewRequest);
             } finally {
                 NodeContext.removeLastContext();
             }

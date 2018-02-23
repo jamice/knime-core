@@ -61,6 +61,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -84,6 +85,8 @@ import org.knime.core.node.web.WebResourceLocator.WebResourceType;
 import org.knime.core.node.web.WebTemplate;
 import org.knime.core.node.web.WebViewContent;
 import org.knime.core.node.wizard.WizardNode;
+import org.knime.core.node.wizard.WizardViewRequest;
+import org.knime.core.node.wizard.WizardViewRequestHandler;
 import org.knime.core.node.wizard.util.LayoutUtil;
 import org.knime.core.node.workflow.NodeID.NodeIDSuffix;
 import org.knime.core.node.workflow.WebResourceController.WizardPageContent.WizardPageNodeInfo;
@@ -665,6 +668,62 @@ public abstract class WebResourceController {
         SubNodeContainer subNodeNC = manager.getNodeContainer(subnodeID, SubNodeContainer.class, true);
         WorkflowManager subNodeWFM = subNodeNC.getWorkflowManager();
         return subNodeWFM.findNodes(WizardNode.class, NOT_HIDDEN_FILTER, false);
+    }
+
+    /**
+     * Returns a wizard node to a given subnode and node id
+     * @param subnodeID the subnode id, which is the container for the wizard node
+     * @param wizardNodeID the node id of the wizard node
+     * @return the resolved wizard node or null, if node id does not denote a wizard node
+     * @since 3.6
+     */
+    @SuppressWarnings("rawtypes")
+    protected WizardNode getWizardNodeForVerifiedID(final NodeID subnodeID, final NodeID wizardNodeID) {
+        CheckUtils.checkNotNull(subnodeID);
+        CheckUtils.checkNotNull(wizardNodeID);
+        WorkflowManager manager = m_manager;
+        assert manager.isLockedByCurrentThread();
+        SubNodeContainer subNodeNC = manager.getNodeContainer(subnodeID, SubNodeContainer.class, true);
+        NodeContainer cont = subNodeNC.getWorkflowManager().getNodeContainer(wizardNodeID);
+        if (cont instanceof NativeNodeContainer) {
+            NodeModel model = ((NativeNodeContainer)cont).getNodeModel();
+            if (model instanceof WizardNode) {
+                return (WizardNode)model;
+            } else {
+                LOGGER.error("Node model is not of type WizardNode");
+            }
+            LOGGER.error("Node container is not of type NativeNodeContainer");
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the future object for a view request, which is from a node within a subnode
+     * @param subnodeID the node id of the subnode container
+     * @param nodeID the node id of the wizard node, as fetched from the combined view
+     * @param viewRequest the JSON serialized view request string
+     * @return a {@link CompletableFuture} instance (not null), which resolves into a response to the view request, or null in case
+     * of error
+     * @since 3.6
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    protected CompletableFuture<WebViewContent> processViewRequestInternal(final NodeID subnodeID, final String nodeID, final String viewRequest) {
+        WorkflowManager manager = m_manager;
+        assert manager.isLockedByCurrentThread();
+        NodeID.NodeIDSuffix suffix = NodeID.NodeIDSuffix.fromString(nodeID);
+        NodeID id = suffix.prependParent(manager.getID());
+        WizardNode model = getWizardNodeForVerifiedID(subnodeID, id);
+        if (model == null || !(model instanceof WizardViewRequestHandler)) {
+            return CompletableFuture.supplyAsync(() -> null);
+        }
+        WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
+        try {
+            req.loadFromStream(new ByteArrayInputStream(viewRequest.getBytes(Charset.forName("UTF-8"))));
+            return ((WizardViewRequestHandler)model).handleRequest(req);
+        } catch (Exception ex) {
+            LOGGER.error("View request failed: " + ex.getMessage(), ex);
+        }
+        return CompletableFuture.supplyAsync(() -> null);
     }
 
     /**

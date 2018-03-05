@@ -60,7 +60,7 @@ import java.util.concurrent.CompletableFuture;
  * @param <RES> The concrete class of the response object.
  * @since 3.6
  */
-public interface ViewRequestHandler <REQ extends ViewRequest<RES>, RES extends ViewContent> {
+public interface ViewRequestHandler <REQ extends ViewRequest<RES>, RES extends ViewResponse> {
 
     /**
      * Handles a view-initialized request. This can be used for
@@ -70,7 +70,6 @@ public interface ViewRequestHandler <REQ extends ViewRequest<RES>, RES extends V
      * @return a future response object as defined by the view implementation, this can also be
      * a regular ViewRepresentation object which is also used in unidirectional interactive nodes.
      */
-    //TODO: future or job?
     public CompletableFuture<RES> handleRequest(REQ request);
 
 }

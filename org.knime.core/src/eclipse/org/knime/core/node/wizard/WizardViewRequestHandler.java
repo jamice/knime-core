@@ -49,7 +49,6 @@
 package org.knime.core.node.wizard;
 
 import org.knime.core.node.interactive.ViewRequestHandler;
-import org.knime.core.node.web.WebViewContent;
 
 /**
  *
@@ -58,7 +57,7 @@ import org.knime.core.node.web.WebViewContent;
  * @param <RES> The concrete class of the response object.
  * @since 3.6
  */
-public interface WizardViewRequestHandler<REQ extends WizardViewRequest<RES>, RES extends WebViewContent>
+public interface WizardViewRequestHandler<REQ extends WizardViewRequest<RES>, RES extends WizardViewResponse>
     extends ViewRequestHandler<REQ, RES> {
 
     /**

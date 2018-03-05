@@ -53,11 +53,9 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.NodeSettingsRO;
 import org.knime.core.node.NodeSettingsWO;
-import org.knime.js.core.JSONViewContent;
+import org.knime.js.core.JSONViewResponse;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -69,23 +67,22 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
  */
 @JsonAutoDetect
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-public class SubnodeViewResponse extends JSONViewContent {
-
-    private static final String CFG_JSON_RESPONSE = "jsonResponse";
+public class SubnodeViewResponse extends JSONViewResponse<SubnodeViewRequest, SubnodeViewResponse> {
 
     private String m_nodeID;
 
+    private static final String CFG_JSON_RESPONSE = "jsonResponse";
     private String m_jsonResponse;
 
     /**
      * Creates a new response object for subnode views.
      *
+     * @param request
      * @param nodeID the node id of the view the response is for
      * @param jsonResponse the JSON serialized response for the specific view
      */
-    @JsonCreator
-    public SubnodeViewResponse(@JsonProperty("nodeID") final String nodeID,
-            @JsonProperty("jsonResponse") final String jsonResponse) {
+    public SubnodeViewResponse(final SubnodeViewRequest request, final String nodeID, final String jsonResponse) {
+        super(request);
         m_nodeID = nodeID;
         m_jsonResponse = jsonResponse;
     }
@@ -110,6 +107,7 @@ public class SubnodeViewResponse extends JSONViewContent {
      */
     @Override
     public void saveToNodeSettings(final NodeSettingsWO settings) {
+        super.saveToNodeSettings(settings);
         settings.addString(SubnodeViewRequest.CFG_NODE_ID, m_nodeID);
         settings.addString(CFG_JSON_RESPONSE, m_jsonResponse);
     }
@@ -119,6 +117,7 @@ public class SubnodeViewResponse extends JSONViewContent {
      */
     @Override
     public void loadFromNodeSettings(final NodeSettingsRO settings) throws InvalidSettingsException {
+        super.loadFromNodeSettings(settings);
         m_nodeID = settings.getString(SubnodeViewRequest.CFG_NODE_ID);
         m_jsonResponse = settings.getString(CFG_JSON_RESPONSE);
     }
@@ -139,6 +138,7 @@ public class SubnodeViewResponse extends JSONViewContent {
         }
         SubnodeViewResponse other = (SubnodeViewResponse)obj;
         return new EqualsBuilder()
+                .appendSuper(super.equals(obj))
                 .append(m_nodeID, other.m_nodeID)
                 .append(m_jsonResponse, other.m_jsonResponse)
                 .isEquals();
@@ -150,6 +150,7 @@ public class SubnodeViewResponse extends JSONViewContent {
     @Override
     public int hashCode() {
         return new HashCodeBuilder()
+                .appendSuper(super.hashCode())
                 .append(m_nodeID)
                 .append(m_jsonResponse)
                 .toHashCode();

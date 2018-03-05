@@ -44,25 +44,15 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   1 Feb 2018 (albrecht): created
+ *   5 Mar 2018 (albrecht): created
  */
-package org.knime.core.node.wizard;
-
-import org.knime.core.node.interactive.ViewRequest;
-import org.knime.core.node.web.WebViewContent;
+package org.knime.core.node.interactive;
 
 /**
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <RES> The concrete view content implementation acting as result value of a concrete class of this operation.
  * @since 3.6
  */
-public interface WizardViewRequest<RES extends WizardViewResponse> extends ViewRequest<RES>, WebViewContent {
-
-    public boolean isCancelable();
-
-    public boolean isCancelsPreviousRequest();
-
-    public boolean isPreserveOrder();
+public interface ViewResponse extends ViewContent {
 
 }

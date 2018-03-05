@@ -54,6 +54,6 @@ package org.knime.core.node.interactive;
  * @param <RES> The concrete view content implementation acting as result value of a concrete class of this operation.
  * @since 3.6
  */
-public interface ViewRequest<RES extends ViewContent> extends ViewContent {
+public interface ViewRequest<RES extends ViewResponse> extends ViewContent {
 
 }

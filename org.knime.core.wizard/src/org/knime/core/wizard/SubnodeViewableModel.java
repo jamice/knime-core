@@ -487,7 +487,7 @@ public class SubnodeViewableModel implements ViewableModel, WizardNode<JSONWebNo
     }
 
     private SubnodeViewResponse buildSubnodeViewResponse(final SubnodeViewRequest request, final String jsonResponse) {
-        return new SubnodeViewResponse(request.getNodeID(), jsonResponse);
+        return new SubnodeViewResponse(request, request.getNodeID(), jsonResponse);
     }
 
     /**

@@ -64,7 +64,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
  * @since 3.6
  */
 @JsonAutoDetect
-public class SubnodeViewRequest extends JSONViewRequest<SubnodeViewResponse> {
+public class SubnodeViewRequest extends JSONViewRequest<SubnodeViewRequest, SubnodeViewResponse> {
 
     static final String CFG_NODE_ID = "nodeID";
     private static final String CFG_JSON_REQUEST = "jsonRequest";
@@ -105,6 +105,7 @@ public class SubnodeViewRequest extends JSONViewRequest<SubnodeViewResponse> {
      */
     @Override
     public void saveToNodeSettings(final NodeSettingsWO settings) {
+        super.saveToNodeSettings(settings);
         settings.addString(CFG_NODE_ID, m_nodeID);
         settings.addString(CFG_JSON_REQUEST, m_jsonRequest);
     }
@@ -114,6 +115,7 @@ public class SubnodeViewRequest extends JSONViewRequest<SubnodeViewResponse> {
      */
     @Override
     public void loadFromNodeSettings(final NodeSettingsRO settings) throws InvalidSettingsException {
+        super.loadFromNodeSettings(settings);
         m_nodeID = settings.getString(CFG_NODE_ID);
         m_jsonRequest = settings.getString(CFG_JSON_REQUEST);
     }
@@ -134,6 +136,7 @@ public class SubnodeViewRequest extends JSONViewRequest<SubnodeViewResponse> {
         }
         SubnodeViewRequest other = (SubnodeViewRequest)obj;
         return new EqualsBuilder()
+                .appendSuper(super.equals(obj))
                 .append(m_nodeID, other.m_nodeID)
                 .append(m_jsonRequest, other.m_jsonRequest)
                 .isEquals();
@@ -145,6 +148,7 @@ public class SubnodeViewRequest extends JSONViewRequest<SubnodeViewResponse> {
     @Override
     public int hashCode() {
         return new HashCodeBuilder()
+                .appendSuper(super.hashCode())
                 .append(m_nodeID)
                 .append(m_jsonRequest)
                 .toHashCode();

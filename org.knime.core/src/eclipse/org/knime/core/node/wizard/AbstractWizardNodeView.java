@@ -361,10 +361,10 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         final String errorString = "View request failed: ";
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
-            Future<? extends WebViewContent> future = ((WizardViewRequestHandler)model).handleRequest(req);
+            Future<? extends WizardViewResponse> future = ((WizardViewRequestHandler)model).handleRequest(req);
             if (future instanceof CompletableFuture) {
                 //async handling
-                ((CompletableFuture)future).thenAcceptAsync(res -> respondToViewRequest((WebViewContent)res));
+                ((CompletableFuture)future).thenAcceptAsync(res -> respondToViewRequest((WizardViewResponse)res));
             } else {
                 //block
                 respondToViewRequest(future.get());
@@ -376,7 +376,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         }
     }
 
-    private final void respondToViewRequest(final WebViewContent response) {
+    private final void respondToViewRequest(final WizardViewResponse response) {
         OutputStream stream;
         try {
             stream = response.saveToStream();

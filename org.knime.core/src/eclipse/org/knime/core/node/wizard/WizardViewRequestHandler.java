@@ -51,6 +51,9 @@ package org.knime.core.node.wizard;
 import org.knime.core.node.interactive.ViewRequestHandler;
 
 /**
+ * Interface for wizard node models which support bidirectional communication with
+ * their interactive view. Esp. views can initialize requests which are processed by the node
+ * model.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
  * @param <REQ> The concrete class of the request object.

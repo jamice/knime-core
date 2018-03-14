@@ -52,6 +52,7 @@ import org.knime.core.node.interactive.ViewRequest;
 import org.knime.core.node.web.WebViewContent;
 
 /**
+ * Interface of a request object that can be issued by an interactive view belonging to a {@link WizardNode}.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
  * @param <RES> The concrete view content implementation acting as result value of a concrete class of this operation.
@@ -59,10 +60,21 @@ import org.knime.core.node.web.WebViewContent;
  */
 public interface WizardViewRequest<RES extends WizardViewResponse> extends ViewRequest<RES>, WebViewContent {
 
+    /**
+     * @return true, if a view request can be cancelled before a response has been issued from the node model, false
+     *         otherwise
+     */
     public boolean isCancelable();
 
+    /**
+     * @return true, if issuing this view request cancels a previously issued request, false otherwise
+     */
     public boolean isCancelsPreviousRequest();
 
+    /**
+     * @return true, if the order in which this request was issued is to preserved, false if the order of requests is
+     *         irrelevant.
+     */
     public boolean isPreserveOrder();
 
 }

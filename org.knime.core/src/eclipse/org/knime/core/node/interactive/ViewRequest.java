@@ -49,9 +49,10 @@
 package org.knime.core.node.interactive;
 
 /**
+ * Interface of a request object that can be issued by an interactive view.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz
- * @param <RES> The concrete view content implementation acting as result value of a concrete class of this operation.
+ * @param <RES> The concrete view content implementation acting as response value of a concrete class of this operation.
  * @since 3.6
  */
 public interface ViewRequest<RES extends ViewResponse> extends ViewContent {

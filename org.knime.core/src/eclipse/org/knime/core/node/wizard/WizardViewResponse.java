@@ -52,6 +52,7 @@ import org.knime.core.node.interactive.ViewResponse;
 import org.knime.core.node.web.WebViewContent;
 
 /**
+ * Interface for a response object, generated in response to an issued {@link WizardViewRequest}.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
  * @since 3.6

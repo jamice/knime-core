@@ -49,6 +49,7 @@
 package org.knime.core.node.interactive;
 
 /**
+ * Interface for a response object, generated in response to an issued {@link ViewRequest}.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
  * @since 3.6

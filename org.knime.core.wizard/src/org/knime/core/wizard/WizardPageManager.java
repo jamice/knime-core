@@ -51,6 +51,7 @@ package org.knime.core.wizard;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.dialog.ExternalNodeData;
@@ -181,4 +182,17 @@ public final class WizardPageManager extends AbstractPageManager {
             return serializeValidationResult(validationResults);
         }
     }
+
+    /**
+     * @param nodeID
+     * @param jsonRequest
+     * @return
+     * @since 3.6
+     */
+    public CompletableFuture<String> processViewRequestOnCurrentPage(final String nodeID, final String jsonRequest) {
+    try (WorkflowLock lock = getWorkflowManager().lock()) {
+        WizardExecutionController wec = getWizardExecutionController();
+        return wec.processViewRequestOnCurrentPage(nodeID, jsonRequest).thenApply(response -> serializeViewResponse(response));
+    }
+}
 }

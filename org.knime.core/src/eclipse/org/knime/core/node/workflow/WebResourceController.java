@@ -87,6 +87,7 @@ import org.knime.core.node.web.WebViewContent;
 import org.knime.core.node.wizard.WizardNode;
 import org.knime.core.node.wizard.WizardViewRequest;
 import org.knime.core.node.wizard.WizardViewRequestHandler;
+import org.knime.core.node.wizard.WizardViewResponse;
 import org.knime.core.node.wizard.util.LayoutUtil;
 import org.knime.core.node.workflow.NodeID.NodeIDSuffix;
 import org.knime.core.node.workflow.WebResourceController.WizardPageContent.WizardPageNodeInfo;
@@ -707,7 +708,7 @@ public abstract class WebResourceController {
      * @since 3.6
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    protected CompletableFuture<WebViewContent> processViewRequestInternal(final NodeID subnodeID, final String nodeID, final String viewRequest) {
+    protected CompletableFuture<WizardViewResponse> processViewRequestInternal(final NodeID subnodeID, final String nodeID, final String viewRequest) {
         WorkflowManager manager = m_manager;
         assert manager.isLockedByCurrentThread();
         NodeID.NodeIDSuffix suffix = NodeID.NodeIDSuffix.fromString(nodeID);

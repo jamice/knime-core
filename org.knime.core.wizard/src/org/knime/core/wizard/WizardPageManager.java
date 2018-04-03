@@ -48,6 +48,7 @@
  */
 package org.knime.core.wizard;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,6 +58,7 @@ import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.dialog.ExternalNodeData;
 import org.knime.core.node.dialog.ExternalNodeData.ExternalNodeDataBuilder;
 import org.knime.core.node.web.ValidationError;
+import org.knime.core.node.wizard.WizardViewResponse;
 import org.knime.core.node.workflow.NodeID.NodeIDSuffix;
 import org.knime.core.node.workflow.WebResourceController;
 import org.knime.core.node.workflow.WebResourceController.WizardPageContent;
@@ -187,12 +189,25 @@ public final class WizardPageManager extends AbstractPageManager {
      * @param nodeID
      * @param jsonRequest
      * @return
+     * @throws IOException
      * @since 3.6
      */
-    public CompletableFuture<String> processViewRequestOnCurrentPage(final String nodeID, final String jsonRequest) {
-    try (WorkflowLock lock = getWorkflowManager().lock()) {
-        WizardExecutionController wec = getWizardExecutionController();
-        return wec.processViewRequestOnCurrentPage(nodeID, jsonRequest).thenApply(response -> serializeViewResponse(response));
+    public CompletableFuture<String> processViewRequestOnCurrentPage(final String nodeID, final String jsonRequest)
+        throws IOException {
+        try (WorkflowLock lock = getWorkflowManager().lock()) {
+            SubnodeViewRequest request = new SubnodeViewRequest();
+            request.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes("UTF-8")));
+
+            WizardExecutionController wec = getWizardExecutionController();
+            CompletableFuture<WizardViewResponse> future =
+                wec.processViewRequestOnCurrentPage(nodeID, request.getJsonRequest());
+            return future.thenApply(response -> serializeViewResponse(response))
+                .thenApply(response -> buildSubnodeViewResponse(request, response))
+                .thenApply(response -> serializeViewResponse(response));
+        }
     }
-}
+
+    private SubnodeViewResponse buildSubnodeViewResponse(final SubnodeViewRequest request, final String jsonResponse) {
+        return new SubnodeViewResponse(request, request.getNodeID(), jsonResponse);
+    }
 }

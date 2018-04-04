@@ -186,18 +186,18 @@ public final class WizardPageManager extends AbstractPageManager {
     }
 
     /**
-     * @param nodeID
-     * @param jsonRequest
-     * @return
-     * @throws IOException
+     * @param wrappedRequest the JSON serialized request wrapping the actual request, which will be forwarded
+     * and processed on the appropriate node
+     * @return a {@link CompletableFuture} wrapping the response JSON string. String may be null in case of error
+     * @throws IOException on serialization/deserialization error
      * @since 3.6
      */
-    public CompletableFuture<String> processViewRequestOnCurrentPage(final String nodeID, final String jsonRequest)
+    public CompletableFuture<String> processViewRequestOnCurrentPage(final String wrappedRequest)
         throws IOException {
         try (WorkflowLock lock = getWorkflowManager().lock()) {
             SubnodeViewRequest request = new SubnodeViewRequest();
-            request.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes("UTF-8")));
-
+            request.loadFromStream(new ByteArrayInputStream(wrappedRequest.getBytes("UTF-8")));
+            String nodeID = request.getNodeID();
             WizardExecutionController wec = getWizardExecutionController();
             CompletableFuture<WizardViewResponse> future =
                 wec.processViewRequestOnCurrentPage(nodeID, request.getJsonRequest());

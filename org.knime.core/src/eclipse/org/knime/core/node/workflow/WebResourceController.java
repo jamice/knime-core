@@ -708,7 +708,8 @@ public abstract class WebResourceController {
      * @since 3.6
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    protected CompletableFuture<WizardViewResponse> processViewRequestInternal(final NodeID subnodeID, final String nodeID, final String viewRequest) {
+    protected CompletableFuture<WizardViewResponse> processViewRequestInternal(final NodeID subnodeID,
+            final String nodeID, final String viewRequest) {
         WorkflowManager manager = m_manager;
         assert manager.isLockedByCurrentThread();
         NodeID.NodeIDSuffix suffix = NodeID.NodeIDSuffix.fromString(nodeID);

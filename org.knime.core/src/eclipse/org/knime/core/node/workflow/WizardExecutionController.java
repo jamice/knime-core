@@ -242,12 +242,13 @@ public final class WizardExecutionController extends WebResourceController imple
     /**
      * Processes a request issued by a view by calling the appropriate methods on the corresponding node model and
      * returns a future which can resolve a response object.
-     * @param nodeID The node id of the node that the request belongs to.
+     * @param nodeID the node id to which the request belongs to
      * @param viewRequest The JSON serialized view request
      * @return a {@link CompletableFuture} object, which can resolve a {@link WizardViewResponse}.
      * @since 3.6
      */
-    public CompletableFuture<WizardViewResponse> processViewRequestOnCurrentPage(final String nodeID, final String viewRequest) {
+    public CompletableFuture<WizardViewResponse> processViewRequestOnCurrentPage(final String nodeID,
+            final String viewRequest) {
         WorkflowManager manager = m_manager;
         try (WorkflowLock lock = manager.lock()) {
             checkDiscard();

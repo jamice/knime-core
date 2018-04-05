@@ -593,13 +593,13 @@ public class Buffer implements KNIMEStreamConstants {
             BlobSupportDataRow row = saveBlobsAndFileStores(r, isCopyOfExisting, forceCopyOfBlobs);
             getAndIncrementSize();
             if ((m_list != null) && (m_maxRowsInMem > 0)) {
-                m_list.add(row);
-                if (m_list.size() > m_maxRowsInMem) {
-                    flushBuffer();
-                }
-            } else {
-                flushBuffer();
-                m_outputWriter.writeRow(row);
+//                m_list.add(row);
+//                if (m_list.size() > m_maxRowsInMem) {
+//                    flushBuffer();
+//                }
+//            } else {
+//                flushBuffer();
+//                m_outputWriter.writeRow(row);
             }
         } catch (Exception e) {
             if (!(e instanceof IOException)) {

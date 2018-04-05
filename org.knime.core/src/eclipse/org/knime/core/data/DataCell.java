@@ -50,11 +50,12 @@ package org.knime.core.data;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
 import org.knime.core.data.collection.CollectionDataValue;
 import org.knime.core.data.container.BlobWrapperDataCell;
+import org.knime.core.node.NodeLogger;
 
 /**
  * <p>
@@ -103,6 +104,9 @@ import org.knime.core.data.container.BlobWrapperDataCell;
 public abstract class DataCell implements DataValue, Serializable {
     private static final long serialVersionUID = 7415713938002260608L;
 
+//    private static final Map<Class<? extends DataCell>, DataType> classToTypeMap = new IdentityHashMap<>(50);
+    private static Object[] classAndTypeMap = new Object[0];
+
     /**
      * Returns this cell's <code>DataType</code>. This method is provided for
      * convenience only, it is a shortcut for
@@ -113,15 +117,44 @@ public abstract class DataCell implements DataValue, Serializable {
      * @see DataType#getType(Class)
      */
     public final DataType getType() {
+        Object[] classAndTypeMapRef = classAndTypeMap;
+        for (int i = 0; i < classAndTypeMapRef.length; i += 2) {
+            if (classAndTypeMapRef[i] == getClass()) {
+                return (DataType)classAndTypeMapRef[i + 1];
+            }
+        }
+//        if (getClass().equals(DoubleCell.class)) {
+//            return DoubleCell.TYPE;
+//        } else if (getClass().equals(StringCell.class)) {
+//            return StringCell.TYPE;
+//        } else if (getClass().equals(IntCell.class)) {
+//            return IntCell.TYPE;
+//        } else if (getClass().equals(LongCell.class)) {
+//            return LongCell.TYPE;
+//        } else if (getClass().equals(BooleanCell.class)) {
+//            return BooleanCell.TYPE;
+//        }
+//        DataType type = classToTypeMap.get(getClass());
+//        if (type != null) {
+//            return type;
+//        }
         DataType elementType = null;
-        List<Class<? extends DataValue>> adapterValueList = Collections.emptyList();
+        List<Class<? extends DataValue>> adapterValueList = null;
         if (this instanceof CollectionDataValue) {
             elementType = ((CollectionDataValue)this).getElementType();
         }
         if (this instanceof AdapterValue) {
             adapterValueList = new ArrayList<Class<? extends DataValue>>(((AdapterValue)this).getAdapterMap().keySet());
         }
-        return DataType.getType(getClass(), elementType, adapterValueList);
+        DataType newType = DataType.getType(getClass(), elementType, adapterValueList);
+        if (adapterValueList == null && elementType == null) {
+            NodeLogger.getLogger(DataCell.class).error("Adding " + getClass().getSimpleName());
+            Object[] classAndTypeMapRefNew = Arrays.copyOf(classAndTypeMapRef, classAndTypeMapRef.length + 2);
+            classAndTypeMapRefNew[classAndTypeMapRef.length] = getClass();
+            classAndTypeMapRefNew[classAndTypeMapRef.length + 1] = newType;
+            classAndTypeMap = classAndTypeMapRefNew;
+        }
+        return newType;
     }
 
     /**

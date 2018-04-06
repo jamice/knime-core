@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
@@ -480,10 +481,15 @@ public class SubnodeViewableModel implements ViewableModel, WizardNode<JSONWebNo
      * @since 3.6
      */
     @Override
-    public CompletableFuture<SubnodeViewResponse> handleRequest(final SubnodeViewRequest request) {
+    public SubnodeViewResponse handleRequest(final SubnodeViewRequest request) {
         CompletableFuture<String> serializationResult =
             m_spm.processViewRequest(request.getNodeID(), request.getJsonRequest(), m_container.getID());
-        return serializationResult.thenApply(response -> buildSubnodeViewResponse(request, response));
+        try {
+            return serializationResult.thenApply(response -> buildSubnodeViewResponse(request, response)).get();
+        } catch (InterruptedException | ExecutionException ex) {
+            LOGGER.error("Unable to process request on combined view: " + ex.getMessage(), ex);
+            return null;
+        }
     }
 
     private SubnodeViewResponse buildSubnodeViewResponse(final SubnodeViewRequest request, final String jsonResponse) {

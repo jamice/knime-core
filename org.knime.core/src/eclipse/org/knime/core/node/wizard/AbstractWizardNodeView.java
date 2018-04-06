@@ -57,7 +57,6 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.core.runtime.IConfigurationElement;
@@ -361,14 +360,9 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         final String errorString = "View request failed: ";
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
-            Future<? extends WizardViewResponse> future = ((WizardViewRequestHandler)model).handleRequest(req);
-            if (future instanceof CompletableFuture) {
-                //async handling
-                ((CompletableFuture)future).thenAcceptAsync(res -> respondToViewRequest((WizardViewResponse)res));
-            } else {
-                //block
-                respondToViewRequest(future.get());
-            }
+            CompletableFuture<? extends WizardViewResponse> future = CompletableFuture
+                .supplyAsync(() -> (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req));
+            future.thenAcceptAsync(res -> respondToViewRequest(res));
             return true;
         } catch (Exception ex) {
             LOGGER.error(errorString + ex, ex);

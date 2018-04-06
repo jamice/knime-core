@@ -721,7 +721,8 @@ public abstract class WebResourceController {
         WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
         try {
             req.loadFromStream(new ByteArrayInputStream(viewRequest.getBytes(Charset.forName("UTF-8"))));
-            return ((WizardViewRequestHandler)model).handleRequest(req);
+            return CompletableFuture
+                .supplyAsync(() -> (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req));
         } catch (Exception ex) {
             LOGGER.error("View request failed: " + ex.getMessage(), ex);
         }

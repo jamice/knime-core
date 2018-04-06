@@ -60,21 +60,6 @@ import org.knime.core.node.web.WebViewContent;
  */
 public interface WizardViewRequest<RES extends WizardViewResponse> extends ViewRequest<RES>, WebViewContent {
 
-    /**
-     * @return true, if a view request can be cancelled before a response has been issued from the node model, false
-     *         otherwise
-     */
-    public boolean isCancelable();
-
-    /**
-     * @return true, if issuing this view request cancels a previously issued request, false otherwise
-     */
-    public boolean isCancelsPreviousRequest();
-
-    /**
-     * @return true, if the order in which this request was issued is to preserved, false if the order of requests is
-     *         irrelevant.
-     */
-    public boolean isPreserveOrder();
+    /* no further methods declared, just restricts generics */
 
 }

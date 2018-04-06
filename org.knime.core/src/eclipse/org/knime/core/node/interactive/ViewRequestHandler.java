@@ -48,8 +48,6 @@
  */
 package org.knime.core.node.interactive;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Interface for interactive node models which support bidirectional communication with
  * their interactive view. Esp. views can initialize requests which are processed by the node
@@ -67,9 +65,9 @@ public interface ViewRequestHandler <REQ extends ViewRequest<RES>, RES extends V
      * example for lazily loading data or other processing handled outside
      * the view implementation.
      * @param request The request object, stating which operation to perform
-     * @return a future response object as defined by the view implementation, this can also be
+     * @return a response object as defined by the view implementation, this can also be
      * a regular ViewRepresentation object which is also used in unidirectional interactive nodes.
      */
-    public CompletableFuture<RES> handleRequest(REQ request);
+    public RES handleRequest(REQ request);
 
 }

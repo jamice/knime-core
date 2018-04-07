@@ -56,6 +56,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
+import org.knime.core.node.ExecutionMonitor;
+import org.knime.core.node.interactive.ViewRequestHandlingException;
 import org.knime.core.node.web.ValidationError;
 import org.knime.core.node.web.WebViewContent;
 import org.knime.core.node.workflow.NodeID;
@@ -200,10 +202,10 @@ public class SinglePageManager extends AbstractPageManager {
     }
 
     CompletableFuture<String> processViewRequest(final String nodeID, final String jsonRequest,
-            final NodeID containerNodeId) {
+            final NodeID containerNodeId, final ExecutionMonitor exec) throws ViewRequestHandlingException {
         try (WorkflowLock lock = getWorkflowManager().lock()) {
             SinglePageWebResourceController sec = getController(containerNodeId);
-            return sec.processViewRequest(nodeID, jsonRequest).thenApply(response -> serializeViewResponse(response));
+            return sec.processViewRequest(nodeID, jsonRequest, exec).thenApply(response -> serializeViewResponse(response));
         }
     }
 

@@ -55,14 +55,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
 import org.knime.core.node.AbstractNodeView.ViewableModel;
+import org.knime.core.node.CanceledExecutionException;
+import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.NodeLogger;
 import org.knime.core.node.NodeSettingsWO;
+import org.knime.core.node.interactive.ViewRequestHandlingException;
 import org.knime.core.node.util.CheckUtils;
 import org.knime.core.node.web.DefaultWebTemplate;
 import org.knime.core.node.web.ValidationError;
@@ -481,14 +486,26 @@ public class SubnodeViewableModel implements ViewableModel, WizardNode<JSONWebNo
      * @since 3.6
      */
     @Override
-    public SubnodeViewResponse handleRequest(final SubnodeViewRequest request) {
+    public SubnodeViewResponse handleRequest(final SubnodeViewRequest request, final ExecutionMonitor exec)
+        throws ViewRequestHandlingException, InterruptedException, CanceledExecutionException {
         CompletableFuture<String> serializationResult =
-            m_spm.processViewRequest(request.getNodeID(), request.getJsonRequest(), m_container.getID());
+            m_spm.processViewRequest(request.getNodeID(), request.getJsonRequest(), m_container.getID(), exec);
         try {
             return serializationResult.thenApply(response -> buildSubnodeViewResponse(request, response)).get();
-        } catch (InterruptedException | ExecutionException ex) {
-            LOGGER.error("Unable to process request on combined view: " + ex.getMessage(), ex);
-            return null;
+        } catch (CompletionException ex1) {
+            Throwable cause = ex1.getCause();
+            if (cause != null) {
+                if (cause instanceof InterruptedException) {
+                    throw (InterruptedException)cause;
+                } else if (cause instanceof ViewRequestHandlingException) {
+                    throw (ViewRequestHandlingException)cause;
+                }
+            }
+            throw new ViewRequestHandlingException(ex1.getMessage(), ex1);
+        } catch (CancellationException ex2) {
+            throw new CanceledExecutionException(ex2.getMessage());
+        } catch (ExecutionException ex3) {
+            throw new ViewRequestHandlingException(ex3.getMessage(), ex3);
         }
     }
 

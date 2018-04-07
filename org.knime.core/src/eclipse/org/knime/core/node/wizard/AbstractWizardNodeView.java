@@ -66,12 +66,16 @@ import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
 import org.knime.core.node.AbstractNodeView;
 import org.knime.core.node.AbstractNodeView.ViewableModel;
+import org.knime.core.node.CanceledExecutionException;
+import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.NodeLogger;
 import org.knime.core.node.NodeModel;
 import org.knime.core.node.interactive.DefaultReexecutionCallback;
 import org.knime.core.node.interactive.InteractiveView;
 import org.knime.core.node.interactive.InteractiveViewDelegate;
 import org.knime.core.node.interactive.ReexecutionCallback;
+import org.knime.core.node.interactive.ViewRequestHandlingException;
+import org.knime.core.node.interactive.ViewResponsePromise;
 import org.knime.core.node.web.ValidationError;
 import org.knime.core.node.web.WebViewContent;
 import org.knime.core.node.workflow.NodeID;
@@ -350,23 +354,34 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      * @since 3.6
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    protected final boolean handleViewRequest(final String jsonRequest) {
+    protected final ViewResponsePromise<? extends WizardViewResponse> handleViewRequest(final String jsonRequest) {
+        ExecutionMonitor exec = new ExecutionMonitor();
+        ViewResponsePromise<? extends WizardViewResponse> promise = new ViewResponsePromise(exec);
         WizardNode<REP,VAL> model = getModel();
         if (!(model instanceof WizardViewRequestHandler)) {
-            return false;
+            return promise;
         }
         LOGGER.debug("Received request from view: " + jsonRequest);
         WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
         final String errorString = "View request failed: ";
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
+            //TODO push node context
             CompletableFuture<? extends WizardViewResponse> future = CompletableFuture
-                .supplyAsync(() -> (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req));
+                .supplyAsync(() -> {
+                    try {
+                        return (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req, exec);
+                    } catch (ViewRequestHandlingException | InterruptedException | CanceledExecutionException ex) {
+                        promise.setExecutionFailed(true);
+                        promise.setErrorMessage(ex.getMessage());
+                        return null;
+                    }
+                });
             future.thenAcceptAsync(res -> respondToViewRequest(res));
-            return true;
+            return promise;
         } catch (Exception ex) {
             LOGGER.error(errorString + ex, ex);
-            return false;
+            return promise;
         }
     }
 

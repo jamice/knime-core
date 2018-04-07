@@ -44,40 +44,61 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   15 Dec 2017 (albrecht): created
+ *   6 Apr 2018 (albrecht): created
  */
 package org.knime.core.node.interactive;
 
-import org.knime.core.node.CanceledExecutionException;
-import org.knime.core.node.ExecutionMonitor;
-import org.knime.core.node.NodeModel;
-
 /**
- * Interface for interactive node models which support bidirectional communication with
- * their interactive view. Esp. views can initialize requests which are processed by the node
- * model.
+ * This exception is used in {@link ViewRequestHandler} when an exception occurs
+ * during the handling of a request or if a response can not be rendered.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <REQ> The concrete class of the request object.
- * @param <RES> The concrete class of the response object.
  * @since 3.6
  */
-public interface ViewRequestHandler<REQ extends ViewRequest<RES>, RES extends ViewResponse> {
+public class ViewRequestHandlingException extends Exception {
 
     /**
-     * Handles a view-initialized request. This can be used for
-     * example for lazily loading data or other processing handled outside
-     * the view implementation and/or the node's {@link NodeModel#execute} method.
-     *
-     * @param request The request object, stating which operation to perform
-     * @param exec An execution monitor which can be used to set progress and check for cancelled execution
-     * @return A response object as defined by the view implementation, this can also be
-     * a regular ViewRepresentation object which is also used in unidirectional interactive nodes.
-     * @throws ViewRequestHandlingException If the request handling or response generation fails for any reason.
-     * @throws InterruptedException If the thread handling the request is interrupted.
-     * @throws CanceledExecutionException If the handling of the request was canceled e.g. by user intervention.
+     * Constructs a new exception of this type with null as its detail message.
+     * The cause is not initialized, and may subsequently be initialized by a call to {@link #initCause}.
      */
-    public RES handleRequest(REQ request, ExecutionMonitor exec)
-        throws ViewRequestHandlingException, InterruptedException, CanceledExecutionException;
+    public ViewRequestHandlingException() {
+        super();
+    }
+
+    /**
+     * Constructs a new exception of this type with the specified detail message.
+     * The cause is not initialized, and may subsequently be initialized by a call to {@link #initCause}.
+     * @param message the detail message. The detail message is saved for later retrieval by
+     * the {@link #getMessage()} method.
+     */
+    public ViewRequestHandlingException(final String message) {
+        super(message);
+    }
+
+    /**
+     * Constructs a new exception of this type with the specified cause and a detail message of
+     * <tt>(cause==null ? null : cause.toString())</tt> (which typically contains the class and detail message of
+     * <tt>cause</tt>). This constructor is useful for exceptions that are little more than
+     * wrappers for other throwables (for example, {@link java.security.PrivilegedActionException}).
+     *
+     * @param  cause the cause (which is saved for later retrieval by the {@link #getCause()} method).
+     * (A <tt>null</tt> value is permitted, and indicates that the cause is nonexistent or unknown.)
+     */
+    public ViewRequestHandlingException(final Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Constructs a new exception of this type with the specified detail message and cause.
+     * <p>Note that the detail message associated with {@code cause} is <i>not</i> automatically incorporated in
+     * this exception's detail message.
+     *
+     * @param  message the detail message (which is saved for later retrieval by the {@link #getMessage()} method).
+     * @param  cause the cause (which is saved for later retrieval by the {@link #getCause()} method).
+     * (A <tt>null</tt> value is permitted, and indicates that the cause is nonexistent or unknown.)
+     */
+    public ViewRequestHandlingException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
 
 }

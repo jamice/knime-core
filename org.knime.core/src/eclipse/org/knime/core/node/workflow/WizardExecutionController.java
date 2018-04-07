@@ -55,10 +55,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.ArrayUtils;
+import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.NodeLogger;
 import org.knime.core.node.NodeSettingsRO;
 import org.knime.core.node.NodeSettingsWO;
+import org.knime.core.node.interactive.ViewRequestHandlingException;
 import org.knime.core.node.util.CheckUtils;
 import org.knime.core.node.web.ValidationError;
 import org.knime.core.node.wizard.WizardViewResponse;
@@ -244,18 +246,20 @@ public final class WizardExecutionController extends WebResourceController imple
      * returns a future which can resolve a response object.
      * @param nodeID the node id to which the request belongs to
      * @param viewRequest The JSON serialized view request
+     * @param exec the execution monitor to set progress and check possible cancellation
      * @return a {@link CompletableFuture} object, which can resolve a {@link WizardViewResponse}.
+     * @throws ViewRequestHandlingException on processing error
      * @since 3.6
      */
     public CompletableFuture<WizardViewResponse> processViewRequestOnCurrentPage(final String nodeID,
-            final String viewRequest) {
+            final String viewRequest, final ExecutionMonitor exec) throws ViewRequestHandlingException {
         WorkflowManager manager = m_manager;
         try (WorkflowLock lock = manager.lock()) {
             checkDiscard();
             NodeContext.pushContext(manager);
             try {
                 CheckUtils.checkState(hasCurrentWizardPageInternal(), "No current wizard page");
-                return processViewRequestInternal(m_waitingSubnodes.get(0), nodeID, viewRequest);
+                return processViewRequestInternal(m_waitingSubnodes.get(0), nodeID, viewRequest, exec);
             } finally {
                 NodeContext.removeLastContext();
             }

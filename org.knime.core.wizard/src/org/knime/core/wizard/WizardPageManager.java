@@ -54,9 +54,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.dialog.ExternalNodeData;
 import org.knime.core.node.dialog.ExternalNodeData.ExternalNodeDataBuilder;
+import org.knime.core.node.interactive.ViewRequestHandlingException;
 import org.knime.core.node.web.ValidationError;
 import org.knime.core.node.wizard.WizardViewResponse;
 import org.knime.core.node.workflow.NodeID.NodeIDSuffix;
@@ -188,19 +190,21 @@ public final class WizardPageManager extends AbstractPageManager {
     /**
      * @param wrappedRequest the JSON serialized request wrapping the actual request, which will be forwarded
      * and processed on the appropriate node
+     * @param exec the execution monitor to set progress and check possible cancellation
      * @return a {@link CompletableFuture} wrapping the response JSON string. String may be null in case of error
      * @throws IOException on serialization/deserialization error
+     * @throws ViewRequestHandlingException on processing error
      * @since 3.6
      */
-    public CompletableFuture<String> processViewRequestOnCurrentPage(final String wrappedRequest)
-        throws IOException {
+    public CompletableFuture<String> processViewRequestOnCurrentPage(final String wrappedRequest,
+        final ExecutionMonitor exec) throws IOException, ViewRequestHandlingException {
         try (WorkflowLock lock = getWorkflowManager().lock()) {
             SubnodeViewRequest request = new SubnodeViewRequest();
             request.loadFromStream(new ByteArrayInputStream(wrappedRequest.getBytes("UTF-8")));
             String nodeID = request.getNodeID();
             WizardExecutionController wec = getWizardExecutionController();
             CompletableFuture<WizardViewResponse> future =
-                wec.processViewRequestOnCurrentPage(nodeID, request.getJsonRequest());
+                wec.processViewRequestOnCurrentPage(nodeID, request.getJsonRequest(), exec);
             return future.thenApply(response -> serializeViewResponse(response))
                 .thenApply(response -> buildSubnodeViewResponse(request, response))
                 .thenApply(response -> serializeViewResponse(response));

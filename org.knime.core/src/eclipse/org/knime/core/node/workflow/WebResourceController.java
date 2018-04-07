@@ -61,18 +61,23 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
+import org.knime.core.node.CanceledExecutionException;
+import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.NodeLogger;
 import org.knime.core.node.NodeModel;
 import org.knime.core.node.dialog.ExternalNodeData;
 import org.knime.core.node.dialog.InputNode;
+import org.knime.core.node.interactive.ViewRequestHandlingException;
 import org.knime.core.node.property.hilite.HiLiteHandler;
 import org.knime.core.node.property.hilite.HiLiteManager;
 import org.knime.core.node.property.hilite.HiLiteTranslator;
@@ -703,13 +708,15 @@ public abstract class WebResourceController {
      * @param subnodeID the node id of the subnode container
      * @param nodeID the node id of the wizard node, as fetched from the combined view
      * @param viewRequest the JSON serialized view request string
+     * @param exec the execution monitor to set progress and check possible cancellation
      * @return a {@link CompletableFuture} instance (not null), which resolves into a response to the view request, or null in case
      * of error
+     * @throws ViewRequestHandlingException on serialization error
      * @since 3.6
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     protected CompletableFuture<WizardViewResponse> processViewRequestInternal(final NodeID subnodeID,
-            final String nodeID, final String viewRequest) {
+        final String nodeID, final String viewRequest, final ExecutionMonitor exec) throws ViewRequestHandlingException {
         WorkflowManager manager = m_manager;
         assert manager.isLockedByCurrentThread();
         NodeID.NodeIDSuffix suffix = NodeID.NodeIDSuffix.fromString(nodeID);
@@ -722,11 +729,18 @@ public abstract class WebResourceController {
         try {
             req.loadFromStream(new ByteArrayInputStream(viewRequest.getBytes(Charset.forName("UTF-8"))));
             return CompletableFuture
-                .supplyAsync(() -> (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req));
+                .supplyAsync(() -> {
+                    try {
+                        return (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req, exec);
+                    } catch (ViewRequestHandlingException | InterruptedException ex) {
+                        throw new CompletionException(ex.getMessage(), ex);
+                    } catch (CanceledExecutionException ex) {
+                        throw new CancellationException(ex.getMessage());
+                    }
+                });
         } catch (Exception ex) {
-            LOGGER.error("View request failed: " + ex.getMessage(), ex);
+            throw new ViewRequestHandlingException(ex.getMessage(), ex);
         }
-        return CompletableFuture.supplyAsync(() -> null);
     }
 
     /**

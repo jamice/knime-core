@@ -297,12 +297,6 @@
         <filter id="336695337">
             <message_arguments>
                 <message_argument value="org.knime.core.node.wizard.AbstractWizardNodeView"/>
-                <message_argument value="showValidationErrorInView(String)"/>
-            </message_arguments>
-        </filter>
-        <filter id="336695337">
-            <message_arguments>
-                <message_argument value="org.knime.core.node.wizard.AbstractWizardNodeView"/>
                 <message_argument value="validateCurrentValueInView()"/>
             </message_arguments>
         </filter>

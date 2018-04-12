@@ -48,6 +48,8 @@
  */
 package org.knime.core.node.interactive;
 
+import java.util.UUID;
+
 import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionMonitor;
 
@@ -58,20 +60,57 @@ import org.knime.core.node.ExecutionMonitor;
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
  * @param <RES> the actual class of the response implementation to be generated
  * @since 3.6
+ * @noreference This class is not intended to be referenced by clients.
+ * @noinstantiate This class is not intended to be instantiated by clients.
  */
-public class ViewResponsePromise<RES extends ViewResponse> {
+public class ViewResponseMonitor<RES extends ViewResponse> {
 
+    private String m_id;
+    private String m_requestSequence;
     private ExecutionMonitor m_exec;
     private RES m_response;
     private boolean m_executionFailed;
     private String m_errorMessage;
 
     /**
-     * Creates a new promise object
+     * Creates a new monitor object in case the view request sequence is unknown at the type of creation.
+     * Call {@link #setRequestSequence(String)} subsequently.
      * @param exec the {@link ExecutionMonitor} holding progress and cancel information
      */
-    public ViewResponsePromise(final ExecutionMonitor exec) {
+    public ViewResponseMonitor(final ExecutionMonitor exec) {
+        this(null, exec);
+    }
+
+    /**
+     * Creates a new monitor object
+     * @param requestSequence the sequence of the view request
+     * @param exec the {@link ExecutionMonitor} holding progress and cancel information
+     */
+    public ViewResponseMonitor(final String requestSequence, final ExecutionMonitor exec) {
+        m_id = UUID.randomUUID().toString();
+        m_requestSequence = requestSequence;
         m_exec = exec;
+    }
+
+    /**
+     * @return the id
+     */
+    public String getId() {
+        return m_id;
+    }
+
+    /**
+     * @return the requestSequence
+     */
+    public String getRequestSequence() {
+        return m_requestSequence;
+    }
+
+    /**
+     * @param requestSequence the requestSequence to set
+     */
+    public void setRequestSequence(final String requestSequence) {
+        m_requestSequence = requestSequence;
     }
 
     /**

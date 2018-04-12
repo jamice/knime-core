@@ -75,11 +75,15 @@ import org.knime.core.node.interactive.InteractiveView;
 import org.knime.core.node.interactive.InteractiveViewDelegate;
 import org.knime.core.node.interactive.ReexecutionCallback;
 import org.knime.core.node.interactive.ViewRequestHandlingException;
-import org.knime.core.node.interactive.ViewResponsePromise;
+import org.knime.core.node.interactive.ViewResponseMonitor;
 import org.knime.core.node.web.ValidationError;
 import org.knime.core.node.web.WebViewContent;
 import org.knime.core.node.workflow.NodeID;
 import org.knime.core.node.workflow.WorkflowManager;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
 /**
  *
@@ -93,32 +97,57 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     extends AbstractNodeView<T> implements InteractiveView<T, REP, VAL> {
 
     private static final NodeLogger LOGGER = NodeLogger.getLogger(AbstractWizardNodeView.class);
+
     private static final String EXT_POINT_ID = "org.knime.core.WizardNodeView";
 
     private final InteractiveViewDelegate<VAL> m_delegate;
 
     private AtomicReference<VAL> m_lastRetrievedValue = new AtomicReference<VAL>();
 
-    /** Label for discard option.
-     * @since 3.4 */
+    /**
+     * Label for discard option.
+     *
+     * @since 3.4
+     */
     protected final static String DISCARD_LABEL = "Discard Changes";
-    /** Description text for discard option.
-     * @since 3.4 */
+
+    /**
+     * Description text for discard option.
+     *
+     * @since 3.4
+     */
     protected final static String DISCARD_DESCRIPTION = "Discards any changes made and closes the view.";
-    /** Label for apply temporarily option.
-     * @since 3.4 */
+
+    /**
+     * Label for apply temporarily option.
+     *
+     * @since 3.4
+     */
     protected final static String APPLY_LABEL = "Apply settings temporarily";
-    /** Description text template for apply temporarily option.
-     * @since 3.4 */
+
+    /**
+     * Description text template for apply temporarily option.
+     *
+     * @since 3.4
+     */
     protected final static String APPLY_DESCRIPTION_FORMAT = "Applies the current view settings to the node%s"
-            + " and triggers a re-execute of the node. This option will not override the default node settings "
-            + "set in the dialog. Changes will be lost when the node is reset.";
-    /** Label for apply as new default option.
-     * @since 3.4*/
+        + " and triggers a re-execute of the node. This option will not override the default node settings "
+        + "set in the dialog. Changes will be lost when the node is reset.";
+
+    /**
+     * Label for apply as new default option.
+     *
+     * @since 3.4
+     */
     protected final static String APPLY_DEFAULT_LABEL = "Apply settings as new default";
-    /** Description text template for apply as new default option.
-     * @since 3.4 */
-    protected final static String APPLY_DEFAULT_DESCRIPTION_FORMAT = "Applies the current view settings as the new default node settings%s"
+
+    /**
+     * Description text template for apply as new default option.
+     *
+     * @since 3.4
+     */
+    protected final static String APPLY_DEFAULT_DESCRIPTION_FORMAT =
+        "Applies the current view settings as the new default node settings%s"
             + " and triggers a re-execute of the node. This option will override the settings set in the node dialog "
             + "and changes made will remain applied after a node reset.";
 
@@ -158,12 +187,10 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
             modelChanged();
         } catch (NullPointerException npe) {
             LOGGER.coding("AbstractWizardNodeView.modelChanged() causes "
-                   + "NullPointerException during notification of a "
-                   + "changed model, reason: " + npe.getMessage(), npe);
+                + "NullPointerException during notification of a " + "changed model, reason: " + npe.getMessage(), npe);
         } catch (Throwable t) {
             LOGGER.error("AbstractWizardNodeView.modelChanged() causes an error "
-                   + "during notification of a changed model, reason: "
-                   + t.getMessage(), t);
+                + "during notification of a changed model, reason: " + t.getMessage(), t);
         }
     }
 
@@ -186,7 +213,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         return null;
     }
 
-     /**
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -260,7 +287,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     }
 
     /**
-     * Check if the view value represented in the currently open view has changed from the view value represented in the node model.
+     * Check if the view value represented in the currently open view has changed from the view value represented in the
+     * node model.
      *
      * @return true if the settings have changed, false otherwise or if status cannot be determined
      * @since 3.4
@@ -271,7 +299,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         }
         String jsonString = retrieveCurrentValueFromView();
         if (jsonString == null) {
-         // no view value present in view
+            // no view value present in view
             return false;
         }
         try {
@@ -289,6 +317,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Query if an interaction with the concrete view is possible.
+     *
      * @return true, if interaction is possible, false otherwise
      * @since 3.4
      */
@@ -296,6 +325,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Execute JavaScript code in view to determine if the current settings validate.
+     *
      * @return true, if validation succeeds, false otherwise
      * @since 3.4
      */
@@ -303,6 +333,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Execute JavaScript code in view to retrieve the current view settings.
+     *
      * @return the JSON serialized view value string
      * @since 3.4
      */
@@ -310,6 +341,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Execute JavaScript code in view to display a validation error.
+     *
      * @param error the errror to display
      * @since 3.4
      */
@@ -317,6 +349,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Called when a close dialog is supposed to be shown with options on how to deal with changed settings in the view.
+     *
      * @return true, if discard is chosen or a subsequent apply was successful, false otherwise
      * @since 3.4
      */
@@ -328,6 +361,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Called when an apply dialog (temporary or default apply) is supposed to be shown.
+     *
      * @return true, if a subsequent apply was successful, false otherwise
      * @since 3.4
      */
@@ -339,13 +373,15 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Displays a dialog to ask user how to handle settings changed in view.
+     *
      * @param showDiscardOption true, if discard option is to be displayed, false otherwise
      * @param title the title of the dialog
      * @param message the message of the dialog
      * @return true, if discard is chosen or a subsequent apply was successful, false otherwise
      * @since 3.4
      */
-    protected abstract boolean showApplyOptionsDialog(final boolean showDiscardOption, final String title, final String message);
+    protected abstract boolean showApplyOptionsDialog(final boolean showDiscardOption, final String title,
+        final String message);
 
     /**
      *
@@ -354,34 +390,48 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      * @since 3.6
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    protected final ViewResponsePromise<? extends WizardViewResponse> handleViewRequest(final String jsonRequest) {
+    protected final String handleViewRequest(final String jsonRequest) {
         ExecutionMonitor exec = new ExecutionMonitor();
-        ViewResponsePromise<? extends WizardViewResponse> promise = new ViewResponsePromise(exec);
-        WizardNode<REP,VAL> model = getModel();
+        ViewResponseMonitor<? extends WizardViewResponse> promise = new ViewResponseMonitor(exec);
+        WizardNode<REP, VAL> model = getModel();
         if (!(model instanceof WizardViewRequestHandler)) {
-            return promise;
+            promise.setExecutionFailed(true);
+            promise.setErrorMessage("Node model can not handle view requests. Possible implementation error.");
+            return serializePromise(promise);
         }
         LOGGER.debug("Received request from view: " + jsonRequest);
         WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
         final String errorString = "View request failed: ";
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
-            //TODO push node context
-            CompletableFuture<? extends WizardViewResponse> future = CompletableFuture
-                .supplyAsync(() -> {
-                    try {
-                        return (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req, exec);
-                    } catch (ViewRequestHandlingException | InterruptedException | CanceledExecutionException ex) {
-                        promise.setExecutionFailed(true);
-                        promise.setErrorMessage(ex.getMessage());
-                        return null;
-                    }
-                });
+            //TODO push node context, but node container missing
+            CompletableFuture<? extends WizardViewResponse> future = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req, exec);
+                } catch (ViewRequestHandlingException | InterruptedException | CanceledExecutionException ex) {
+                    promise.setExecutionFailed(true);
+                    promise.setErrorMessage(ex.getMessage());
+                    return null;
+                }
+            });
             future.thenAcceptAsync(res -> respondToViewRequest(res));
-            return promise;
+            return serializePromise(promise);
         } catch (Exception ex) {
             LOGGER.error(errorString + ex, ex);
-            return promise;
+            promise.setExecutionFailed(true);
+            promise.setErrorMessage(ex.getMessage());
+            return serializePromise(promise);
+        }
+    }
+
+    private String serializePromise(final ViewResponseMonitor<? extends WizardViewResponse> promise) {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new Jdk8Module());
+        try {
+            return mapper.writeValueAsString(promise);
+        } catch (JsonProcessingException ex) {
+            LOGGER.error("Error serializing response monitor object: " + ex.getMessage(), ex);
+            return null;
         }
     }
 
@@ -407,6 +457,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
     /**
      * Queries extension point for additional {@link AbstractWizardNodeView} implementations.
+     *
      * @return A list with all registered view implementations.
      */
     @SuppressWarnings("unchecked")
@@ -427,8 +478,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
                     viewClass = (Class<AbstractWizardNodeView<?, ?, ?>>)Class.forName(viewClassName);
                     viewExtensionList.add(new WizardNodeViewExtension(viewClass, viewName, viewDesc));
                 } catch (ClassNotFoundException ex) {
-                    NodeLogger.getLogger(AbstractWizardNodeView.class).coding(
-                        "Could not find implementation for " + viewClassName, ex);
+                    NodeLogger.getLogger(AbstractWizardNodeView.class)
+                        .coding("Could not find implementation for " + viewClassName, ex);
                 }
             }
         }
@@ -443,7 +494,9 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     public static class WizardNodeViewExtension {
 
         private Class<AbstractWizardNodeView<?, ?, ?>> m_viewClass;
+
         private String m_viewName;
+
         private String m_viewDescription;
 
         /**
@@ -463,7 +516,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         /**
          * @return the viewClass
          */
-        public Class<AbstractWizardNodeView<? extends ViewableModel, ? extends WebViewContent, ? extends WebViewContent>>
+        public
+            Class<AbstractWizardNodeView<? extends ViewableModel, ? extends WebViewContent, ? extends WebViewContent>>
             getViewClass() {
             return m_viewClass;
         }

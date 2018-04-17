@@ -285,12 +285,6 @@
         <filter id="336695337">
             <message_arguments>
                 <message_argument value="org.knime.core.node.wizard.AbstractWizardNodeView"/>
-                <message_argument value="retrieveCurrentValueFromView()"/>
-            </message_arguments>
-        </filter>
-        <filter id="336695337">
-            <message_arguments>
-                <message_argument value="org.knime.core.node.wizard.AbstractWizardNodeView"/>
                 <message_argument value="showApplyOptionsDialog(boolean, String, String)"/>
             </message_arguments>
         </filter>
@@ -313,13 +307,6 @@
             </message_arguments>
         </filter>
         <filter id="437350426">
-            <message_arguments>
-                <message_argument value="org.knime.core.node.wizard.AbstractWizardNodeView"/>
-                <message_argument value="T"/>
-                <message_argument value="org.knime.core.node.wizard.WizardNode"/>
-            </message_arguments>
-        </filter>
-        <filter id="438399040">
             <message_arguments>
                 <message_argument value="org.knime.core.node.wizard.AbstractWizardNodeView"/>
                 <message_argument value="T"/>

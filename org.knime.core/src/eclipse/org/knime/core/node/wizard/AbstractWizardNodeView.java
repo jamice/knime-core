@@ -55,8 +55,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.core.runtime.IConfigurationElement;
@@ -73,6 +75,7 @@ import org.knime.core.node.NodeModel;
 import org.knime.core.node.interactive.DefaultReexecutionCallback;
 import org.knime.core.node.interactive.InteractiveView;
 import org.knime.core.node.interactive.InteractiveViewDelegate;
+import org.knime.core.node.interactive.MonitoredCompletableFuture;
 import org.knime.core.node.interactive.ReexecutionCallback;
 import org.knime.core.node.interactive.ViewRequestHandlingException;
 import org.knime.core.node.interactive.ViewResponseMonitor;
@@ -94,7 +97,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
  * @since 2.11
  */
 public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>, REP extends WebViewContent, VAL extends WebViewContent>
-    extends AbstractNodeView<T> implements InteractiveView<T, REP, VAL> {
+    extends AbstractNodeView<T> implements InteractiveView<T, REP, VAL>, ViewRequestExecutor<String> {
 
     private static final NodeLogger LOGGER = NodeLogger.getLogger(AbstractWizardNodeView.class);
 
@@ -103,6 +106,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     private final InteractiveViewDelegate<VAL> m_delegate;
 
     private AtomicReference<VAL> m_lastRetrievedValue = new AtomicReference<VAL>();
+
+    private Map<String, DefaultViewRequestJob<? extends WizardViewResponse>> m_viewRequestMap;
 
     /**
      * Label for discard option.
@@ -158,6 +163,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     protected AbstractWizardNodeView(final T nodeModel) {
         super(nodeModel);
         m_delegate = new InteractiveViewDelegate<VAL>();
+        m_viewRequestMap = new HashMap<String, DefaultViewRequestJob<? extends WizardViewResponse>>();
     }
 
     @Override
@@ -342,7 +348,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     /**
      * Execute JavaScript code in view to display a validation error.
      *
-     * @param error the errror to display
+     * @param error the error to display
      * @since 3.4
      */
     protected abstract void showValidationErrorInView(String error);
@@ -389,15 +395,17 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      * @return true, if the request could be processed correctly, false otherwise
      * @since 3.6
      */
+    @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
-    protected final String handleViewRequest(final String jsonRequest) {
-        ExecutionMonitor exec = new ExecutionMonitor();
-        ViewResponseMonitor<? extends WizardViewResponse> promise = new ViewResponseMonitor(exec);
+    public final String handleViewRequest(final String jsonRequest) {
+        ExecutionMonitor overallExec = new ExecutionMonitor();
+        ViewResponseMonitor<? extends WizardViewResponse> monitor = new ViewResponseMonitor(overallExec);
+        UUID monitorID = UUID.fromString(monitor.getId());
         WizardNode<REP, VAL> model = getModel();
         if (!(model instanceof WizardViewRequestHandler)) {
-            promise.setExecutionFailed(true);
-            promise.setErrorMessage("Node model can not handle view requests. Possible implementation error.");
-            return serializePromise(promise);
+            monitor.setExecutionFailed(true);
+            monitor.setErrorMessage("Node model can not handle view requests. Possible implementation error.");
+            return serializeResponseMonitor(monitor);
         }
         LOGGER.debug("Received request from view: " + jsonRequest);
         WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
@@ -405,26 +413,62 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
             //TODO push node context, but node container missing
-            CompletableFuture<? extends WizardViewResponse> future = CompletableFuture.supplyAsync(() -> {
-                try {
-                    return (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req, exec);
-                } catch (ViewRequestHandlingException | InterruptedException | CanceledExecutionException ex) {
-                    promise.setExecutionFailed(true);
-                    promise.setErrorMessage(ex.getMessage());
-                    return null;
-                }
+            ExecutionMonitor requestExec = overallExec.createSubProgress(0.9);
+            MonitoredCompletableFuture<? extends WizardViewResponse> future =
+                MonitoredCompletableFuture.supplyAsync(() -> {
+                    try {
+                        return (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req, requestExec);
+                    } catch (ViewRequestHandlingException | InterruptedException | CanceledExecutionException ex) {
+                        monitor.setExecutionFailed(true);
+                        monitor.setErrorMessage(ex.getMessage());
+                        return null;
+                    }
+                }, overallExec);
+            m_viewRequestMap.put(monitorID, future);
+            future.thenAcceptAsync(res -> {
+                overallExec.setMessage("Serializing response...");
+                respondToViewRequest(res);
+                overallExec.setProgress(1);
+                overallExec.setMessage("");
+                m_viewRequestMap.remove(monitorID);
             });
-            future.thenAcceptAsync(res -> respondToViewRequest(res));
-            return serializePromise(promise);
+            return serializeResponseMonitor(monitor);
         } catch (Exception ex) {
             LOGGER.error(errorString + ex, ex);
-            promise.setExecutionFailed(true);
-            promise.setErrorMessage(ex.getMessage());
-            return serializePromise(promise);
+            monitor.setExecutionFailed(true);
+            monitor.setErrorMessage(ex.getMessage());
+            m_viewRequestMap.remove(monitorID);
+            return serializeResponseMonitor(monitor);
         }
     }
 
-    private String serializePromise(final ViewResponseMonitor<? extends WizardViewResponse> promise) {
+    /**
+     * {@inheritDoc}
+     * @since 3.6
+     */
+    @Override
+    public String updateRequestStatus(final UUID monitorID) {
+        MonitoredCompletableFuture<? extends WizardViewResponse> future = m_viewRequestMap.get(monitorID);
+        if (future != null) {
+
+        }
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     * @since 3.6
+     */
+    @Override
+    public void cancelRequest(final UUID monitorID) {
+        MonitoredCompletableFuture<? extends WizardViewResponse> future = m_viewRequestMap.get(monitorID);
+        if (future != null) {
+            future.cancel(true);
+            m_viewRequestMap.remove(monitorID);
+        }
+    }
+
+    private String serializeResponseMonitor(final ViewResponseMonitor<? extends WizardViewResponse> promise) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new Jdk8Module());
         try {
@@ -453,7 +497,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      * @param response
      * @since 3.6
      */
-    protected abstract void respondToViewRequest(final String response);
+    @Override
+    public abstract void respondToViewRequest(final String response);
 
     /**
      * Queries extension point for additional {@link AbstractWizardNodeView} implementations.

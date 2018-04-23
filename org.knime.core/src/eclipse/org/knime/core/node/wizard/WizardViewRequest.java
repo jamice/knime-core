@@ -60,6 +60,10 @@ import org.knime.core.node.web.WebViewContent;
  */
 public interface WizardViewRequest<RES extends WizardViewResponse> extends ViewRequest<RES>, WebViewContent {
 
-    /* no further methods declared, just restricts generics */
+    /**
+     * A sequence which acts as the identifier to a single view implementation and order mark
+     * @return the sequence
+     */
+    public int getSequence();
 
 }

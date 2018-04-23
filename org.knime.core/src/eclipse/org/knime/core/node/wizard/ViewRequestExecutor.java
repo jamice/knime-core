@@ -44,85 +44,49 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   7 Apr 2018 (albrecht): created
+ *   17 Apr 2018 (albrecht): created
  */
-package org.knime.core.node.interactive;
+package org.knime.core.node.wizard;
 
-import java.util.Optional;
+import java.util.UUID;
+
+import org.knime.core.node.interactive.ViewRequest;
+import org.knime.core.node.interactive.ViewResponse;
+import org.knime.core.node.interactive.ViewResponseMonitor;
 
 /**
- * Interface for objects holding information about the execution status of a view request and
- * after successful execution the generated response object, or a possible error message otherwise.
+ * Interface for all instances able to deal with view requests and return corresponding responses from node models.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <RES> the actual class of the response implementation to be generated
+ * @param <T> the type of the serialized request and response objects
  * @since 3.6
- * @noreference This interface is not intended to be referenced by clients.
- * @noinstantiate This interface is not intended to be instantiated by clients.
  */
-public interface ViewResponseMonitor<RES extends ViewResponse> {
+public interface ViewRequestExecutor<T> {
 
     /**
-     * Returns a unique id for this monitor object, not null.
-     * @return the unique id
+     * Initiates a view request.
+     * @param request a serialized {@link ViewRequest} to process
+     * @return a serialized {@link ViewResponseMonitor} object
      */
-    public String getId();
+    public T handleViewRequest(final T request);
 
     /**
-     * @return the requestSequence
+     * Triggers sending the generated response to the corresponding view.
+     * @param response the serialized {@link ViewResponse} to send to the view
      */
-    public int getRequestSequence();
+    public void respondToViewRequest(final T response);
 
     /**
-     * The current progress value or if progress available.
-     * @return Optional progress value between 0 and 1.
+     * Query status update on a running view request.
+     * @param monitorID the id of the corresponding {@link ViewResponseMonitor}
+     * @return an updated serialized {@link ViewResponseMonitor}
      */
-    public Optional<Double> getProgress();
+    public T updateRequestStatus(final UUID monitorID);
 
     /**
-     * The current progress message if message available.
-     * @return Optional progress message
+     * Triggers cancellation of a running view request.
+     * @param monitorID the id of the corresponding {@link ViewResponseMonitor}
      */
-    public Optional<String> getProgressMessage();
+    public void cancelRequest(final UUID monitorID);
 
-    /**
-     * Checks if the execution of the request was cancelled.
-     * @return true if the execution is cancelled, false otherwise
-     */
-    public boolean isCancelled();
-
-    /**
-     * Returns whether or not an execution for a view request was started
-     * @return true if the execution started, false otherwise
-     */
-    public boolean isExecutionStarted();
-
-    /**
-     * Returns whether or not the execution for a view request finished
-     * @return true if the execution finished, false otherwise
-     */
-    public boolean isExecutionFinished();
-
-    /**
-     * Returns a response object if the response is available. The response might be empty
-     * if the generation of the response is not yet complete or an error has occurred.
-     * @return an optional response object
-     */
-    public Optional<RES> getResponse();
-
-    /**
-     * @return true if a response object is available, false otherwise
-     */
-    public boolean isResponseAvailable();
-
-    /**
-     * @return true if an error occurred during the generation of the response object, false otherwise
-     */
-    public boolean isExecutionFailed();
-
-    /**
-     * Returns an error message in case {@link #isExecutionFailed()} yields true and a message was available.
-     * @return an optional error message
-     */
-    public Optional<String> getErrorMessage();
 }

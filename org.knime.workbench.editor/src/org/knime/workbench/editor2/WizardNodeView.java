@@ -502,7 +502,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
      * {@inheritDoc}
      */
     @Override
-    protected void respondToViewRequest(final String response) {
+    public void respondToViewRequest(final String response) {
         Display display = getDisplay();
         if (display == null) {
             // view most likely disposed

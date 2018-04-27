@@ -58,9 +58,8 @@ import java.util.UUID;
 import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.interactive.MonitoredCompletableFuture;
-import org.knime.core.node.interactive.ViewRequest;
-import org.knime.core.node.interactive.ViewRequestHandler;
 import org.knime.core.node.interactive.ViewRequestHandlingException;
+import org.knime.core.node.interactive.ViewRequestJob;
 import org.knime.core.node.interactive.ViewResponse;
 import org.knime.core.node.interactive.ViewResponseMonitor;
 
@@ -73,7 +72,8 @@ import org.knime.core.node.interactive.ViewResponseMonitor;
  * @noreference This class is not intended to be referenced by clients.
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
-public class DefaultViewRequestJob<RES extends WizardViewResponse> implements ViewResponseMonitor<RES> {
+public class DefaultViewRequestJob<RES extends WizardViewResponse>implements ViewResponseMonitor<RES>,
+    ViewRequestJob<RES> {
 
     private String m_id;
     private int m_requestSequence;
@@ -117,13 +117,9 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
     }
 
     /**
-     * Initiates the asynchronous processing of a view request in the provided request handler.
-     *
-     * @param handler A {@link ViewRequestHandler} instance able to process the corresponding request
-     * @param request The {@link ViewRequest} to be processed
-     * @param exec An {@link ExecutionMonitor} used to report progress and check for cancellation
-     * @return A {@link MonitoredCompletableFuture} used to handle the asynchronous processing of the request
+     * {@inheritDoc}
      */
+    @Override
     public <REQ extends WizardViewRequest<RES>> MonitoredCompletableFuture<RES>
         start(final WizardViewRequestHandler<REQ, RES> handler, final REQ request, final ExecutionMonitor exec) {
         m_requestSequence = request.getSequence();
@@ -159,9 +155,9 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
     }
 
     /**
-     * Cancels the view request processing. This method has no effect on already completed or not started
-     * jobs.
+     * {@inheritDoc}
      */
+    @Override
     public void cancel() {
         if (m_future != null && !m_future.isDone()) {
             m_future.cancel(true);
@@ -213,7 +209,9 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
      */
     @Override
     public Optional<RES> getResponse() {
-        return Optional.ofNullable(m_response);
+        synchronized(m_block) {
+            return Optional.ofNullable(m_response);
+        }
     }
 
     /**
@@ -221,7 +219,9 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
      */
     @Override
     public boolean isResponseAvailable() {
-        return m_response != null;
+        synchronized(m_block) {
+            return m_response != null;
+        }
     }
 
     /**

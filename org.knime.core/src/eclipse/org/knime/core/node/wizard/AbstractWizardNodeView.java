@@ -58,7 +58,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.core.runtime.IConfigurationElement;
@@ -68,7 +67,6 @@ import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
 import org.knime.core.node.AbstractNodeView;
 import org.knime.core.node.AbstractNodeView.ViewableModel;
-import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.NodeLogger;
 import org.knime.core.node.NodeModel;
@@ -77,14 +75,19 @@ import org.knime.core.node.interactive.InteractiveView;
 import org.knime.core.node.interactive.InteractiveViewDelegate;
 import org.knime.core.node.interactive.MonitoredCompletableFuture;
 import org.knime.core.node.interactive.ReexecutionCallback;
-import org.knime.core.node.interactive.ViewRequestHandlingException;
+import org.knime.core.node.interactive.SimpleErrorViewResponse;
+import org.knime.core.node.interactive.ViewRequestJob;
 import org.knime.core.node.interactive.ViewResponseMonitor;
 import org.knime.core.node.web.ValidationError;
 import org.knime.core.node.web.WebViewContent;
+import org.knime.core.node.wizard.DefaultViewRequestJob.ViewResponseMonitorUpdateEvent;
+import org.knime.core.node.wizard.DefaultViewRequestJob.ViewResponseMonitorUpdateEventType;
+import org.knime.core.node.wizard.DefaultViewRequestJob.ViewResponseMonitorUpdateListener;
 import org.knime.core.node.workflow.NodeID;
 import org.knime.core.node.workflow.WorkflowManager;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
@@ -398,48 +401,79 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public final String handleViewRequest(final String jsonRequest) {
+        //TODO: is the simple creation of the monitor correct here?
         ExecutionMonitor overallExec = new ExecutionMonitor();
-        ViewResponseMonitor<? extends WizardViewResponse> monitor = new ViewResponseMonitor(overallExec);
-        UUID monitorID = UUID.fromString(monitor.getId());
         WizardNode<REP, VAL> model = getModel();
+        int requestSequence = -1;
         if (!(model instanceof WizardViewRequestHandler)) {
-            monitor.setExecutionFailed(true);
-            monitor.setErrorMessage("Node model can not handle view requests. Possible implementation error.");
-            return serializeResponseMonitor(monitor);
+            try {
+                requestSequence = tryGetSequenceFromRequest(jsonRequest);
+            } catch (Exception ex) { /* nothing can be done in this case */ }
+            String errorMessage = "Node model can not handle view requests. Possible implementation error.";
+            return serializeResponseMonitor(new SimpleErrorViewResponse(requestSequence, errorMessage));
         }
         LOGGER.debug("Received request from view: " + jsonRequest);
         WizardViewRequest req = ((WizardViewRequestHandler)model).createEmptyViewRequest();
         final String errorString = "View request failed: ";
+        DefaultViewRequestJob<? extends WizardViewResponse> requestJob = null;
         try {
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
+            requestSequence = req.getSequence();
+
             //TODO push node context, but node container missing
-            ExecutionMonitor requestExec = overallExec.createSubProgress(0.9);
-            MonitoredCompletableFuture<? extends WizardViewResponse> future =
-                MonitoredCompletableFuture.supplyAsync(() -> {
-                    try {
-                        return (WizardViewResponse)((WizardViewRequestHandler)model).handleRequest(req, requestExec);
-                    } catch (ViewRequestHandlingException | InterruptedException | CanceledExecutionException ex) {
-                        monitor.setExecutionFailed(true);
-                        monitor.setErrorMessage(ex.getMessage());
-                        return null;
+
+            requestJob = new DefaultViewRequestJob<>(requestSequence);
+            final String requestID = requestJob.getId();
+            final ViewResponseMonitor<? extends WizardViewResponse> monitor = requestJob;
+            requestJob.addUpdateListener(new ViewResponseMonitorUpdateListener() {
+
+                @Override
+                public void monitorUpdate(final ViewResponseMonitorUpdateEvent event) {
+                    ViewResponseMonitorUpdateEventType type = event.getType();
+                    if (ViewResponseMonitorUpdateEventType.PROGRESS_UPDATE == type) {
+                        pushRequestUpdate(serializeResponseMonitor(monitor));
                     }
-                }, overallExec);
-            m_viewRequestMap.put(monitorID, future);
+                }
+            });
+            m_viewRequestMap.put(requestID, requestJob);
+
+            //TODO add update listener to job for push notifications
+
+            MonitoredCompletableFuture<? extends WizardViewResponse> future =
+                requestJob.start((WizardViewRequestHandler)model, req, overallExec);
             future.thenAcceptAsync(res -> {
                 overallExec.setMessage("Serializing response...");
                 respondToViewRequest(res);
                 overallExec.setProgress(1);
-                overallExec.setMessage("");
-                m_viewRequestMap.remove(monitorID);
+                overallExec.setMessage((String)null);
+                m_viewRequestMap.remove(requestID);
             });
-            return serializeResponseMonitor(monitor);
+            return serializeResponseMonitor(requestJob);
         } catch (Exception ex) {
             LOGGER.error(errorString + ex, ex);
-            monitor.setExecutionFailed(true);
-            monitor.setErrorMessage(ex.getMessage());
-            m_viewRequestMap.remove(monitorID);
-            return serializeResponseMonitor(monitor);
+            if (requestJob != null) {
+                m_viewRequestMap.remove(requestJob.getId());
+            }
+            if (requestSequence == -1) {
+                try {
+                    requestSequence = tryGetSequenceFromRequest(jsonRequest);
+                } catch (Exception ex2) { /* nothing can be done in this case */ }
+            }
+            return serializeResponseMonitor(new SimpleErrorViewResponse(requestSequence, ex.getMessage()));
         }
+    }
+
+    private int tryGetSequenceFromRequest(final String jsonRequest) throws JsonProcessingException, IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(jsonRequest);
+        JsonNode sequenceNode = node.get("sequence");
+        if (sequenceNode != null) {
+            int sequence = sequenceNode.asInt(-1);
+            if (sequence >= 0) {
+                return sequence;
+            }
+        }
+        throw new IllegalArgumentException("JSON request string did not contain a 'sequence' field.");
     }
 
     /**
@@ -447,10 +481,10 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      * @since 3.6
      */
     @Override
-    public String updateRequestStatus(final UUID monitorID) {
-        MonitoredCompletableFuture<? extends WizardViewResponse> future = m_viewRequestMap.get(monitorID);
-        if (future != null) {
-
+    public String updateRequestStatus(final String monitorID) {
+        ViewResponseMonitor<? extends WizardViewResponse> monitor = m_viewRequestMap.get(monitorID);
+        if (monitor != null) {
+            return serializeResponseMonitor(monitor);
         }
         return null;
     }
@@ -460,19 +494,20 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      * @since 3.6
      */
     @Override
-    public void cancelRequest(final UUID monitorID) {
-        MonitoredCompletableFuture<? extends WizardViewResponse> future = m_viewRequestMap.get(monitorID);
+    public void cancelRequest(final String monitorID) {
+        ViewRequestJob<? extends WizardViewResponse> future = m_viewRequestMap.get(monitorID);
         if (future != null) {
-            future.cancel(true);
+            future.cancel();
             m_viewRequestMap.remove(monitorID);
         }
     }
 
-    private String serializeResponseMonitor(final ViewResponseMonitor<? extends WizardViewResponse> promise) {
+
+    private String serializeResponseMonitor(final ViewResponseMonitor<? extends WizardViewResponse> monitor) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new Jdk8Module());
         try {
-            return mapper.writeValueAsString(promise);
+            return mapper.writeValueAsString(monitor);
         } catch (JsonProcessingException ex) {
             LOGGER.error("Error serializing response monitor object: " + ex.getMessage(), ex);
             return null;
@@ -499,6 +534,12 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      */
     @Override
     public abstract void respondToViewRequest(final String response);
+
+    /**
+     * @param monitor
+     * @since 3.6
+     */
+    public abstract void pushRequestUpdate(final String monitor);
 
     /**
      * Queries extension point for additional {@link AbstractWizardNodeView} implementations.

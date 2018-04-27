@@ -44,47 +44,49 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   17 Apr 2018 (albrecht): created
+ *   25 Apr 2018 (albrecht): created
  */
-package org.knime.core.node.wizard;
+package org.knime.core.node.interactive;
 
-import org.knime.core.node.interactive.ViewRequest;
-import org.knime.core.node.interactive.ViewResponse;
-import org.knime.core.node.interactive.ViewResponseMonitor;
+import org.knime.core.node.ExecutionMonitor;
+import org.knime.core.node.wizard.WizardViewRequest;
+import org.knime.core.node.wizard.WizardViewRequestHandler;
+import org.knime.core.node.wizard.WizardViewResponse;
 
 /**
- * Interface for all instances able to deal with view requests and return corresponding responses from node models.
+ * Interface for objects which can initiate execution of a view request.
+ *
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <T> the type of the serialized request and response objects
+ * @param <RES> The actual class of the response implementation to be generated
  * @since 3.6
+ * @noreference This interface is not intended to be referenced by clients.
+ * @noinstantiate This interface is not intended to be instantiated by clients.
  */
-public interface ViewRequestExecutor<T> {
+public interface ViewRequestJob<RES extends WizardViewResponse> {
 
     /**
-     * Initiates a view request.
-     * @param request a serialized {@link ViewRequest} to process
-     * @return a serialized {@link ViewResponseMonitor} object
+     * Returns a unique id for this monitor object, not null.
+     * @return the unique id
      */
-    public T handleViewRequest(final T request);
+    public String getId();
 
     /**
-     * Triggers sending the generated response to the corresponding view.
-     * @param response the serialized {@link ViewResponse} to send to the view
+     * Initiates the asynchronous processing of a view request in the provided request handler.
+     *
+     * @param handler A {@link ViewRequestHandler} instance able to process the corresponding request
+     * @param request The {@link ViewRequest} to be processed
+     * @param exec An {@link ExecutionMonitor} used to report progress and check for cancellation
+     * @param <REQ> The actual class of the view request
+     * @return A {@link MonitoredCompletableFuture} used to handle the asynchronous processing of the request
      */
-    public void respondToViewRequest(final T response);
+    public <REQ extends WizardViewRequest<RES>> MonitoredCompletableFuture<RES>
+        start(final WizardViewRequestHandler<REQ, RES> handler, final REQ request, final ExecutionMonitor exec);
 
     /**
-     * Query status update on a running view request.
-     * @param monitorID the id of the corresponding {@link ViewResponseMonitor}
-     * @return an updated serialized {@link ViewResponseMonitor}
+     * Cancels the view request processing. This method has no effect on already completed or not started
+     * jobs.
      */
-    public T updateRequestStatus(final String monitorID);
-
-    /**
-     * Triggers cancellation of a running view request.
-     * @param monitorID the id of the corresponding {@link ViewResponseMonitor}
-     */
-    public void cancelRequest(final String monitorID);
+    public void cancel();
 
 }

@@ -44,47 +44,126 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   17 Apr 2018 (albrecht): created
+ *   25 Apr 2018 (albrecht): created
  */
-package org.knime.core.node.wizard;
+package org.knime.core.node.interactive;
 
-import org.knime.core.node.interactive.ViewRequest;
-import org.knime.core.node.interactive.ViewResponse;
-import org.knime.core.node.interactive.ViewResponseMonitor;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
- * Interface for all instances able to deal with view requests and return corresponding responses from node models.
+ * A simple implementation of a {@link ViewResponseMonitor} which notifies the view of a failure in the execution
+ * of a view request.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <T> the type of the serialized request and response objects
+ * @param <RES> the expected {@link ViewResponse} implementation corresponding to the issued {@link ViewRequest}
  * @since 3.6
  */
-public interface ViewRequestExecutor<T> {
+public class SimpleErrorViewResponse<RES extends ViewResponse> implements ViewResponseMonitor<RES> {
+
+    private String m_id;
+    private int m_requestSequence;
+    private String m_errorMessage;
 
     /**
-     * Initiates a view request.
-     * @param request a serialized {@link ViewRequest} to process
-     * @return a serialized {@link ViewResponseMonitor} object
+     * Creates a new simple response object containing only an error message with information about why a
+     * view request execution failed.
+     *
+     * @param requestSequence the request sequence number for later identification
+     * @param errorMessage an optional error message with details about the ocurred error
      */
-    public T handleViewRequest(final T request);
+    public SimpleErrorViewResponse(final int requestSequence, final String errorMessage) {
+        m_requestSequence = requestSequence;
+        m_errorMessage = errorMessage;
+        m_id = UUID.randomUUID().toString();
+    }
 
     /**
-     * Triggers sending the generated response to the corresponding view.
-     * @param response the serialized {@link ViewResponse} to send to the view
+     * {@inheritDoc}
      */
-    public void respondToViewRequest(final T response);
+    @Override
+    public String getId() {
+        return m_id;
+    }
 
     /**
-     * Query status update on a running view request.
-     * @param monitorID the id of the corresponding {@link ViewResponseMonitor}
-     * @return an updated serialized {@link ViewResponseMonitor}
+     * {@inheritDoc}
      */
-    public T updateRequestStatus(final String monitorID);
+    @Override
+    public int getRequestSequence() {
+        return m_requestSequence;
+    }
 
     /**
-     * Triggers cancellation of a running view request.
-     * @param monitorID the id of the corresponding {@link ViewResponseMonitor}
+     * {@inheritDoc}
      */
-    public void cancelRequest(final String monitorID);
+    @Override
+    public Optional<Double> getProgress() {
+        return Optional.empty();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<String> getProgressMessage() {
+        return Optional.empty();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isCancelled() {
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isExecutionStarted() {
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isExecutionFinished() {
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<RES> getResponse() {
+        return Optional.empty();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isResponseAvailable() {
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isExecutionFailed() {
+        return true;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<String> getErrorMessage() {
+        return Optional.ofNullable(m_errorMessage);
+    }
 
 }

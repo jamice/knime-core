@@ -105,6 +105,8 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
 
     private Browser m_browser;
     private BrowserFunction m_viewRequestCallback;
+    private BrowserFunction m_updateRequestStatusCallback;
+    private BrowserFunction m_cancelRequestCallback;
     private boolean m_viewSet = false;
     private boolean m_initialized = false;
     private String m_title;
@@ -331,19 +333,19 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
                 });
                 setBrowserURL();
                 m_viewRequestCallback = new ViewRequestFunction(m_browser, "knimeViewRequest");
+                m_updateRequestStatusCallback = new UpdateRequestStatusFunction(m_browser, "knimeUpdateRequestStatus");
+                m_cancelRequestCallback = new CancelRequestFunction(m_browser, "knimeCancelRequest");
             }
         });
 
     }
 
     class DropdownSelectionListener extends SelectionAdapter {
-        private ToolItem dropdown;
 
         private Menu menu;
 
-        public DropdownSelectionListener(final ToolItem dropdown) {
-          this.dropdown = dropdown;
-          menu = new Menu(dropdown.getParent().getShell(), SWT.POP_UP);
+        public DropdownSelectionListener(final ToolItem drop) {
+          menu = new Menu(drop.getParent().getShell(), SWT.POP_UP);
         }
 
         public void add(final String text, final String tooltip, final SelectionAdapter selectionListener) {
@@ -392,12 +394,20 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
         if (m_viewRequestCallback != null && !m_viewRequestCallback.isDisposed()) {
             m_viewRequestCallback.dispose();
         }
+        if (m_updateRequestStatusCallback != null && !m_updateRequestStatusCallback.isDisposed()) {
+            m_updateRequestStatusCallback.dispose();
+        }
+        if (m_cancelRequestCallback != null && !m_cancelRequestCallback.isDisposed()) {
+            m_cancelRequestCallback.dispose();
+        }
         if (m_shell != null && !m_shell.isDisposed()) {
             m_shell.dispose();
         }
         m_shell = null;
         m_browser = null;
         m_viewRequestCallback = null;
+        m_updateRequestStatusCallback = null;
+        m_cancelRequestCallback = null;
         m_viewSet = false;
         // do instanceof check here to avoid a public discard method in the ViewableModel interface
         if (getViewableModel() instanceof SubnodeViewableModel) {
@@ -521,6 +531,28 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
         });
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void pushRequestUpdate(final String monitor) {
+        Display display = getDisplay();
+        if (display == null) {
+            // view most likely disposed
+            return;
+        }
+        display.asyncExec(new Runnable() {
+
+            @Override
+            public void run() {
+                String call = "KnimeInteractivity.viewRequestProgressUpdate(JSON.parse('" + monitor + "'));";
+                WizardViewCreator<REP, VAL> creator = getViewCreator();
+                call = creator.wrapInTryCatch(call);
+                m_browser.execute(call);
+            }
+        });
+    }
+
     private class ViewRequestFunction extends BrowserFunction {
 
         /**
@@ -542,6 +574,51 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
             return handleViewRequest((String)arguments[0]);
         }
 
+    }
+
+    private class UpdateRequestStatusFunction extends BrowserFunction {
+
+        /**
+         * @param browser
+         * @param name
+         */
+        public UpdateRequestStatusFunction(final Browser browser, final String name) {
+            super(browser, name);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Object function(final Object[] arguments) {
+            if (arguments == null || arguments.length < 1) {
+                return false;
+            }
+            return updateRequestStatus((String)arguments[0]);
+        }
+    }
+
+    private class CancelRequestFunction extends BrowserFunction {
+
+        /**
+         * @param browser
+         * @param name
+         */
+        public CancelRequestFunction(final Browser browser, final String name) {
+            super(browser, name);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Object function(final Object[] arguments) {
+            if (arguments == null || arguments.length < 1) {
+                return false;
+            }
+            cancelRequest((String)arguments[0]);
+            return null;
+        }
     }
 
 }

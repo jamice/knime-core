@@ -72,7 +72,7 @@ import org.knime.core.node.interactive.ViewResponseMonitor;
  * @noreference This class is not intended to be referenced by clients.
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
-public class DefaultViewRequestJob<RES extends WizardViewResponse>implements ViewResponseMonitor<RES>,
+public class DefaultViewRequestJob<RES extends WizardViewResponse>implements WizardViewResponseMonitor<RES>,
     ViewRequestJob<RES> {
 
     private String m_id;
@@ -83,6 +83,7 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse>implements Vie
     private boolean m_executionFinished;
     private boolean m_executionFailed;
     private String m_errorMessage;
+    private boolean m_pushEnabled;
 
     private final List<ViewResponseMonitorUpdateListener> m_listeners;
     private final DefaultViewRequestJob<RES> m_job;
@@ -90,14 +91,18 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse>implements Vie
 
     /**
      * Creates a new job instance.
-     * @param sequence the sequence of the corresponding request, used for identification in the view
-     * implementation and ordering
+     *
+     * @param sequence the sequence of the corresponding request, used for identification in the view implementation and
+     *            ordering
+     * @param pushEnabled true if the executing {@link ViewRequestExecutor} can push progress and status updates to the
+     *            view, false otherwise (view needs to poll for updates)
      */
-    public DefaultViewRequestJob(final int sequence) {
+    public DefaultViewRequestJob(final int sequence, final boolean pushEnabled) {
         m_id = UUID.randomUUID().toString();
         m_requestSequence = sequence;
         m_listeners = new ArrayList<ViewResponseMonitorUpdateListener>(1);
         m_job = this;
+        m_pushEnabled = pushEnabled;
     }
 
     /**
@@ -336,6 +341,14 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse>implements Vie
         }
 
 
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isPushEnabled() {
+        return m_pushEnabled;
     }
 
 }

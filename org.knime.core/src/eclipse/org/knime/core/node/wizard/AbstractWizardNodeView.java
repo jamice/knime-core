@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtension;
@@ -422,7 +423,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
             //TODO push node context, but node container missing
 
-            requestJob = new DefaultViewRequestJob<>(requestSequence);
+            requestJob = new DefaultViewRequestJob(requestSequence, true);
             final String requestID = requestJob.getId();
             final ViewResponseMonitor<? extends WizardViewResponse> monitor = requestJob;
             requestJob.addUpdateListener(new ViewResponseMonitorUpdateListener() {
@@ -432,21 +433,31 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
                     ViewResponseMonitorUpdateEventType type = event.getType();
                     if (ViewResponseMonitorUpdateEventType.PROGRESS_UPDATE == type) {
                         pushRequestUpdate(serializeResponseMonitor(monitor));
+                    } else {
+                        if (monitor.isExecutionFinished() && monitor.isResponseAvailable()) {
+                            pushRequestUpdate(serializeResponseMonitor(monitor));
+                            m_viewRequestMap.remove(requestID);
+                        } else {
+                            pushRequestUpdate(serializeResponseMonitor(monitor));
+                            if (monitor.isExecutionFailed() || monitor.isCancelled()) {
+                                m_viewRequestMap.remove(monitor.getId());
+                            }
+                        }
                     }
                 }
             });
             m_viewRequestMap.put(requestID, requestJob);
 
-            //TODO add update listener to job for push notifications
-
             MonitoredCompletableFuture<? extends WizardViewResponse> future =
                 requestJob.start((WizardViewRequestHandler)model, req, overallExec);
             future.thenAcceptAsync(res -> {
-                overallExec.setMessage("Serializing response...");
-                respondToViewRequest(res);
                 overallExec.setProgress(1);
                 overallExec.setMessage((String)null);
-                m_viewRequestMap.remove(requestID);
+                // if not resolved, cancelled or failed yet
+                if (m_viewRequestMap.containsKey(requestID)) {
+                    respondToViewRequest(res);
+                    m_viewRequestMap.remove(requestID);
+                }
             });
             return serializeResponseMonitor(requestJob);
         } catch (Exception ex) {
@@ -495,8 +506,20 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      */
     @Override
     public void cancelRequest(final String monitorID) {
+        //try to get by id
         ViewRequestJob<? extends WizardViewResponse> future = m_viewRequestMap.get(monitorID);
+        if (future == null) {
+            //try to get by request sequence
+            List<DefaultViewRequestJob<? extends WizardViewResponse>> jobList = m_viewRequestMap.entrySet().stream()
+                .filter(e -> monitorID.equals(Integer.toString(e.getValue().getRequestSequence())))
+                .map(e -> e.getValue())
+                .collect(Collectors.toList());
+            if (jobList.size() > 0) {
+                future = jobList.get(0);
+            }
+        }
         if (future != null) {
+            LOGGER.debug("Cancelling view request " + future.getId());
             future.cancel();
             m_viewRequestMap.remove(monitorID);
         }

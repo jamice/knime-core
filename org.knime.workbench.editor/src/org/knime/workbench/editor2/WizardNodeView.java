@@ -522,10 +522,13 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
 
             @Override
             public void run() {
+                LOGGER.debug("Sending response: " + response);
                 String call = "KnimeInteractivity.respondToViewRequest(JSON.parse('" + response + "'));";
                 WizardViewCreator<REP, VAL> creator = getViewCreator();
                 call = creator.wrapInTryCatch(call);
-                m_browser.execute(call);
+                if (m_browser != null && !m_browser.isDisposed()) {
+                    m_browser.execute(call);
+                }
             }
 
         });
@@ -548,7 +551,9 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
                 String call = "KnimeInteractivity.viewRequestProgressUpdate(JSON.parse('" + monitor + "'));";
                 WizardViewCreator<REP, VAL> creator = getViewCreator();
                 call = creator.wrapInTryCatch(call);
-                m_browser.execute(call);
+                if (m_browser != null && !m_browser.isDisposed()) {
+                    m_browser.execute(call);
+                }
             }
         });
     }

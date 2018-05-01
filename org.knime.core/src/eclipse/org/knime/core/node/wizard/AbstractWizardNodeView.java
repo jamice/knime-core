@@ -423,7 +423,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
 
             //TODO push node context, but node container missing
 
-            requestJob = new DefaultViewRequestJob(requestSequence, true);
+            requestJob = new DefaultViewRequestJob(requestSequence, true /*pushEnabled*/);
             final String requestID = requestJob.getId();
             final ViewResponseMonitor<? extends WizardViewResponse> monitor = requestJob;
             requestJob.addUpdateListener(new ViewResponseMonitorUpdateListener() {
@@ -431,17 +431,11 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
                 @Override
                 public void monitorUpdate(final ViewResponseMonitorUpdateEvent event) {
                     ViewResponseMonitorUpdateEventType type = event.getType();
-                    if (ViewResponseMonitorUpdateEventType.PROGRESS_UPDATE == type) {
-                        pushRequestUpdate(serializeResponseMonitor(monitor));
-                    } else {
-                        if (monitor.isExecutionFinished() && monitor.isResponseAvailable()) {
-                            pushRequestUpdate(serializeResponseMonitor(monitor));
+                    pushRequestUpdate(serializeResponseMonitor(monitor));
+                    if (ViewResponseMonitorUpdateEventType.STATUS_UPDATE == type) {
+                        if (monitor.isExecutionFailed() || monitor.isCancelled()
+                            || (monitor.isExecutionFinished() && monitor.isResponseAvailable())) {
                             m_viewRequestMap.remove(requestID);
-                        } else {
-                            pushRequestUpdate(serializeResponseMonitor(monitor));
-                            if (monitor.isExecutionFailed() || monitor.isCancelled()) {
-                                m_viewRequestMap.remove(monitor.getId());
-                            }
                         }
                     }
                 }
@@ -495,6 +489,10 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     public String updateRequestStatus(final String monitorID) {
         ViewResponseMonitor<? extends WizardViewResponse> monitor = m_viewRequestMap.get(monitorID);
         if (monitor != null) {
+            if (monitor.isCancelled() || monitor.isExecutionFailed()
+                || (monitor.isExecutionFinished() && monitor.isResponseAvailable())) {
+                m_viewRequestMap.remove(monitor.getId());
+            }
             return serializeResponseMonitor(monitor);
         }
         return null;

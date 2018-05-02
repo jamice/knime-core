@@ -548,7 +548,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
 
             @Override
             public void run() {
-                String call = "KnimeInteractivity.viewRequestProgressUpdate(JSON.parse('" + monitor + "'));";
+                String call = "KnimeInteractivity.updateResponseMonitor(JSON.parse('" + monitor + "'));";
                 WizardViewCreator<REP, VAL> creator = getViewCreator();
                 call = creator.wrapInTryCatch(call);
                 if (m_browser != null && !m_browser.isDisposed()) {

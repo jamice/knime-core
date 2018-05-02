@@ -228,7 +228,13 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
      */
     @Override
     protected void callCloseView() {
+        cancelOutstandingViewRequests();
         closeView();
+    }
+
+    private void cancelOutstandingViewRequests() {
+        m_viewRequestMap.values().forEach(job -> job.cancel());
+        m_viewRequestMap.clear();
     }
 
     /**

@@ -44,49 +44,41 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   25 Apr 2018 (albrecht): created
+ *   17 May 2018 (albrecht): created
  */
-package org.knime.core.node.interactive;
+package org.knime.core.node.wizard;
 
-import java.util.concurrent.CompletableFuture;
-
-import org.knime.core.node.wizard.WizardViewRequest;
-import org.knime.core.node.wizard.WizardViewRequestHandler;
-import org.knime.core.node.wizard.WizardViewResponse;
+import org.knime.core.node.interactive.ViewResponse;
+import org.knime.core.node.interactive.ViewResponseMonitor;
 
 /**
- * Interface for objects which can initiate execution of a view request.
- *
+ * Interface for all instances able to deal with view requests and return corresponding responses from node
+ * models, which also support pushing request updates and rendered responses to the
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <RES> The actual class of the response implementation to be generated
+ * @param <T> the type of the serialized request, response and monitor objects
  * @since 3.6
- * @noreference This interface is not intended to be referenced by clients.
- * @noinstantiate This interface is not intended to be instantiated by clients.
  */
-public interface ViewRequestJob<RES extends WizardViewResponse> {
+public interface ViewRequestExecutorPushEnabled<T> extends ViewRequestExecutor<T> {
 
     /**
-     * Returns a unique id for this monitor object, not null.
-     * @return the unique id
+     * {@inheritDoc}
      */
-    public String getId();
+    @Override
+    public default boolean isPushEnabled() {
+        return true;
+    }
 
     /**
-     * Initiates the asynchronous processing of a view request in the provided request handler.
-     *
-     * @param handler A {@link ViewRequestHandler} instance able to process the corresponding request
-     * @param request The {@link ViewRequest} to be processed
-     * @param <REQ> The actual class of the view request
-     * @return A {@link CompletableFuture} used to handle the asynchronous processing of the request
+     * Triggers sending (pushes) a generated response to the corresponding view.
+     * @param response the serialized {@link ViewResponse} to send to the view
      */
-    public <REQ extends WizardViewRequest<RES>> CompletableFuture<RES>
-        start(final WizardViewRequestHandler<REQ, RES> handler, final REQ request);
+    public void respondToViewRequest(final T response);
 
     /**
-     * Cancels the view request processing. This method has no effect on already completed or not started
-     * jobs.
+     * Triggers sending (pushes) an updated response monitor to the corresponding view.
+     * @param monitor the serialized {@link ViewResponseMonitor} to send to the view
      */
-    public void cancel();
+    public void pushRequestUpdate(final T monitor);
 
 }

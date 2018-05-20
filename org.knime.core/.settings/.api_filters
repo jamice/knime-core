@@ -312,12 +312,6 @@
                 <message_argument value="AbstractWizardNodeView(T)"/>
             </message_arguments>
         </filter>
-        <filter id="439378009">
-            <message_arguments>
-                <message_argument value="org.knime.core.node.wizard.AbstractWizardNodeView"/>
-                <message_argument value="T"/>
-            </message_arguments>
-        </filter>
     </resource>
     <resource path="src/eclipse/org/knime/core/node/wizard/WizardNode.java" type="org.knime.core.node.wizard.WizardNode">
         <filter id="403804204">

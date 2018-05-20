@@ -60,6 +60,8 @@ import org.knime.core.node.dialog.ExternalNodeData;
 import org.knime.core.node.dialog.ExternalNodeData.ExternalNodeDataBuilder;
 import org.knime.core.node.interactive.ViewRequestHandlingException;
 import org.knime.core.node.web.ValidationError;
+import org.knime.core.node.wizard.DefaultViewRequestJob;
+import org.knime.core.node.wizard.ViewRequestExecutor;
 import org.knime.core.node.wizard.WizardViewResponse;
 import org.knime.core.node.workflow.NodeID.NodeIDSuffix;
 import org.knime.core.node.workflow.WebResourceController;
@@ -80,7 +82,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @author Christian Albrecht, KNIME.com GmbH, Konstanz, Germany
  * @since 3.4
  */
-public final class WizardPageManager extends AbstractPageManager {
+public final class WizardPageManager extends AbstractPageManager implements ViewRequestExecutor<String> {
 
     /**
      * Returns a {@link WizardPageManager} instance for the given {@link WorkflowManager}
@@ -213,5 +215,42 @@ public final class WizardPageManager extends AbstractPageManager {
 
     private SubnodeViewResponse buildSubnodeViewResponse(final SubnodeViewRequest request, final String jsonResponse) {
         return new SubnodeViewResponse(request, request.getNodeID(), jsonResponse);
+    }
+
+    /**
+     * {@inheritDoc}
+     * @since 3.6
+     */
+    @Override
+    public String handleViewRequest(final String request) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     * @since 3.6
+     */
+    @Override
+    public String updateRequestStatus(final String monitorID) {
+        ViewRequestRegistry registry = ViewRequestRegistry.getInstance();
+        if (registry.isJobRegistered(monitorID)) {
+            //TODO I need to be brought to life
+        }
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     * @since 3.6
+     */
+    @Override
+    public void cancelRequest(final String monitorID) {
+        ViewRequestRegistry registry = ViewRequestRegistry.getInstance();
+        if (registry.isJobRegistered(monitorID)) {
+            DefaultViewRequestJob<? extends WizardViewResponse> job = registry.getJob(monitorID);
+            job.cancel();
+            registry.removeJob(monitorID);
+        }
     }
 }

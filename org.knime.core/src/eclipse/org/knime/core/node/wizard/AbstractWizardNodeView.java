@@ -58,6 +58,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -74,7 +75,6 @@ import org.knime.core.node.NodeModel;
 import org.knime.core.node.interactive.DefaultReexecutionCallback;
 import org.knime.core.node.interactive.InteractiveView;
 import org.knime.core.node.interactive.InteractiveViewDelegate;
-import org.knime.core.node.interactive.MonitoredCompletableFuture;
 import org.knime.core.node.interactive.ReexecutionCallback;
 import org.knime.core.node.interactive.SimpleErrorViewResponse;
 import org.knime.core.node.interactive.ViewRequestJob;
@@ -100,8 +100,9 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
  * @param <VAL> the {@link WebViewContent} implementation used as view value
  * @since 2.11
  */
-public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>, REP extends WebViewContent, VAL extends WebViewContent>
-    extends AbstractNodeView<T> implements InteractiveView<T, REP, VAL>, ViewRequestExecutor<String> {
+public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>,
+    REP extends WebViewContent, VAL extends WebViewContent> extends AbstractNodeView<T>
+    implements InteractiveView<T, REP, VAL>, ViewRequestExecutorPushEnabled<String> {
 
     private static final NodeLogger LOGGER = NodeLogger.getLogger(AbstractWizardNodeView.class);
 
@@ -221,6 +222,14 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
             return new File(viewPath);
         }
         return null;
+    }
+
+    /**
+     * @return a map of all currently active view requests, never null
+     * @since 3.6
+     */
+    protected Map<String, DefaultViewRequestJob<? extends WizardViewResponse>> getViewRequestMap() {
+        return m_viewRequestMap;
     }
 
     /**
@@ -427,9 +436,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
             req.loadFromStream(new ByteArrayInputStream(jsonRequest.getBytes(Charset.forName("UTF-8"))));
             requestSequence = req.getSequence();
 
-            //TODO push node context, but node container missing
-
-            requestJob = new DefaultViewRequestJob(requestSequence, true /*pushEnabled*/);
+            requestJob = new DefaultViewRequestJob(requestSequence, overallExec);
             final String requestID = requestJob.getId();
             final ViewResponseMonitor<? extends WizardViewResponse> monitor = requestJob;
             requestJob.addUpdateListener(new ViewResponseMonitorUpdateListener() {
@@ -448,8 +455,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
             });
             m_viewRequestMap.put(requestID, requestJob);
 
-            MonitoredCompletableFuture<? extends WizardViewResponse> future =
-                requestJob.start((WizardViewRequestHandler)model, req, overallExec);
+            CompletableFuture<? extends WizardViewResponse> future =
+                requestJob.start((WizardViewRequestHandler)model, req);
             future.thenAcceptAsync(res -> {
                 overallExec.setProgress(1);
                 overallExec.setMessage((String)null);
@@ -513,7 +520,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         //try to get by id
         ViewRequestJob<? extends WizardViewResponse> future = m_viewRequestMap.get(monitorID);
         if (future == null) {
-            //try to get by request sequence
+            //try to get by request sequence, this might happen when the view can only push but not return
+            //the id on an initial polling request
             List<DefaultViewRequestJob<? extends WizardViewResponse>> jobList = m_viewRequestMap.entrySet().stream()
                 .filter(e -> monitorID.equals(Integer.toString(e.getValue().getRequestSequence())))
                 .map(e -> e.getValue())
@@ -555,17 +563,17 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     }
 
     /**
-     *
-     * @param response
+     * {@inheritDoc}
      * @since 3.6
      */
     @Override
     public abstract void respondToViewRequest(final String response);
 
     /**
-     * @param monitor
+     * {@inheritDoc}
      * @since 3.6
      */
+    @Override
     public abstract void pushRequestUpdate(final String monitor);
 
     /**

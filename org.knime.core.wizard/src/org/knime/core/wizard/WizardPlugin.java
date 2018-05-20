@@ -44,28 +44,30 @@
  * ---------------------------------------------------------------------
  *
  * History
- *   30 Apr 2018 (albrecht): created
+ *   11 May 2018 (albrecht): created
  */
-package org.knime.core.node.wizard;
+package org.knime.core.wizard;
 
-import org.knime.core.node.interactive.ViewResponseMonitor;
+import org.osgi.framework.BundleActivator;
+import org.osgi.framework.BundleContext;
 
 /**
- * Interface for objects holding information about the execution status of a {@link WizardViewRequest} and
- * after successful execution the generated response object, or a possible error message otherwise.
  *
  * @author Christian Albrecht, KNIME GmbH, Konstanz, Germany
- * @param <RES> the actual class of the response implementation to be generated
  * @since 3.6
- * @noreference This interface is not intended to be referenced by clients.
- * @noinstantiate This interface is not intended to be instantiated by clients.
  */
-public interface WizardViewResponseMonitor<RES extends WizardViewResponse> extends ViewResponseMonitor<RES> {
+public class WizardPlugin implements BundleActivator {
 
-    /**
-     * @return true if the executing {@link ViewRequestExecutor} can push progress or status updates to the view, false
-     *         otherwise (view needs to poll for updates)
-     */
-    public boolean isPushEnabled();
+    @Override
+    public void start(final BundleContext context) throws Exception {
+        // nothing to do
+    }
+
+    @Override
+    public void stop(final BundleContext context) throws Exception {
+        if (ViewRequestRegistry.isRunning()) {
+            ViewRequestRegistry.getInstance().teardown();
+        }
+    }
 
 }

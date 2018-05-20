@@ -49,7 +49,6 @@
 package org.knime.core.node.wizard;
 
 import org.knime.core.node.interactive.ViewRequest;
-import org.knime.core.node.interactive.ViewResponse;
 import org.knime.core.node.interactive.ViewResponseMonitor;
 
 /**
@@ -62,17 +61,20 @@ import org.knime.core.node.interactive.ViewResponseMonitor;
 public interface ViewRequestExecutor<T> {
 
     /**
+     * Returns whether or not this request executor is capable of pushing state updates and responses to
+     * a view implementation.
+     * @return true if this executor supports push, false otherwise
+     */
+    public default boolean isPushEnabled() {
+        return false;
+    }
+
+    /**
      * Initiates a view request.
      * @param request a serialized {@link ViewRequest} to process
      * @return a serialized {@link ViewResponseMonitor} object
      */
     public T handleViewRequest(final T request);
-
-    /**
-     * Triggers sending the generated response to the corresponding view.
-     * @param response the serialized {@link ViewResponse} to send to the view
-     */
-    public void respondToViewRequest(final T response);
 
     /**
      * Query status update on a running view request.

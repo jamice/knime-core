@@ -458,6 +458,7 @@ public class MonitoredCompletableFuture<T> extends CompletableFuture<T> {
      */
     @Override
     public MonitoredCompletableFuture<Void> thenAcceptAsync(final Consumer<? super T> action) {
+        m_baseFuture.thenAccept
         return monitor(m_baseFuture.thenAcceptAsync(action));
     }
 

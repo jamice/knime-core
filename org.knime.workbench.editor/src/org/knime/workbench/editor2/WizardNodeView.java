@@ -107,6 +107,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
     private BrowserFunction m_viewRequestCallback;
     private BrowserFunction m_updateRequestStatusCallback;
     private BrowserFunction m_cancelRequestCallback;
+    private BrowserFunction m_isPushSupportedCallback;
     private boolean m_viewSet = false;
     private boolean m_initialized = false;
     private String m_title;
@@ -335,6 +336,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
                 m_viewRequestCallback = new ViewRequestFunction(m_browser, "knimeViewRequest");
                 m_updateRequestStatusCallback = new UpdateRequestStatusFunction(m_browser, "knimeUpdateRequestStatus");
                 m_cancelRequestCallback = new CancelRequestFunction(m_browser, "knimeCancelRequest");
+                m_isPushSupportedCallback = new PushSupportedFunction(m_browser, "knimePushSupported");
             }
         });
 
@@ -400,6 +402,9 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
         if (m_cancelRequestCallback != null && !m_cancelRequestCallback.isDisposed()) {
             m_cancelRequestCallback.dispose();
         }
+        if (m_isPushSupportedCallback != null && !m_isPushSupportedCallback.isDisposed()) {
+            m_isPushSupportedCallback.dispose();
+        }
         if (m_shell != null && !m_shell.isDisposed()) {
             m_shell.dispose();
         }
@@ -408,6 +413,7 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
         m_viewRequestCallback = null;
         m_updateRequestStatusCallback = null;
         m_cancelRequestCallback = null;
+        m_isPushSupportedCallback = null;
         m_viewSet = false;
         // do instanceof check here to avoid a public discard method in the ViewableModel interface
         if (getViewableModel() instanceof SubnodeViewableModel) {
@@ -624,6 +630,26 @@ public final class WizardNodeView<T extends ViewableModel & WizardNode<REP, VAL>
             cancelRequest((String)arguments[0]);
             return null;
         }
+    }
+
+    private class PushSupportedFunction extends BrowserFunction {
+
+        /**
+         * @param browser
+         * @param name
+         */
+        public PushSupportedFunction(final Browser browser, final String name) {
+            super(browser, name);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Object function(final Object[] arguments) {
+            return isPushEnabled();
+        }
+
     }
 
 }

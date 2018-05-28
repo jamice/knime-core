@@ -50,26 +50,47 @@ package org.knime.base.node.util;
 
 import java.awt.CardLayout;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
+import java.util.stream.Stream;
 
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.ListCellRenderer;
+import javax.swing.ListSelectionModel;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import javax.swing.text.JTextComponent;
 
 import org.fife.ui.autocomplete.AutoCompletion;
@@ -80,6 +101,7 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.knime.base.node.preproc.stringmanipulation.manipulator.Manipulator;
 import org.knime.core.data.DataColumnSpec;
 import org.knime.core.data.DataTableSpec;
+import org.knime.core.node.NodeDialogPane;
 import org.knime.core.node.util.SharedIcons;
 import org.knime.core.node.workflow.FlowVariable;
 import org.knime.ext.sun.nodes.script.expression.Expression;
@@ -103,8 +125,37 @@ public class JSnippetPanel2 extends JPanel {
     private static final String PLACEHOLDER = "placeholder";
     private static final String EDITOR = "editor";
 
+    // Parent NodeDialogPane
+    private NodeDialogPane m_ndp;
+
     /**
-     * JMenuItem that renders {@link DataColumnSpec}, {@link FlowVariable} and Strings.
+     * {@link ListCellRenderer} to display the DisplayName of {@link Manipulator}s in a {@link JList}
+     *
+     * @author Johannes Schweig
+     */
+    private class ManipulatorListCellRenderer extends DefaultListCellRenderer {
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Component getListCellRendererComponent(final JList list, final Object value, final int index, final boolean isSelected,
+            final boolean cellHasFocus) {
+            Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            assert (c == this);
+            if (value instanceof Manipulator) {
+                setText(((Manipulator) value).getDisplayName());
+            } else {
+                setText(value.toString());
+            }
+            setFont(new Font(getFont().getName(), Font.PLAIN, getFont().getSize()));
+            return this;
+        }
+    }
+
+    /**
+     * {@link JMenuItem} that renders {@link DataColumnSpec}, {@link FlowVariable} and Strings.
+     *
      * @author Johannes Schweig
      */
     private class ColumnFlowVarMenuItem extends JMenuItem {
@@ -144,19 +195,136 @@ public class JSnippetPanel2 extends JPanel {
     }
 
     /**
-     * A JMenuBar with three entries for columns, flow variables and functions
+     * A JMenuBar with three menus for columns, flow variables and functions
+     *
      * @author Johannes Schweig
      */
     private class EditorMenuBar extends JMenuBar {
 
-        // Menus
+        // Menus: columns, flow variables, functions (manipulators)
         private JMenu m_columnsMenu;
         private JMenu m_flowVarsMenu;
         private JMenu m_functionsMenu;
+        // FunctionsDialog
+        private JDialog m_functionsDialog;
+        private JList<Manipulator> m_functionsListView;
         // Lists of entries
         private ArrayList<Object> m_columnsList = new ArrayList<Object>();
         private ArrayList<FlowVariable> m_flowVarsList = new ArrayList<FlowVariable>();
         private ArrayList<Manipulator> m_functionsList = new ArrayList<Manipulator>();
+
+        // MenuListener for menus other than functions
+        private final MenuListener closeMenuListener = new MenuListener() {
+
+                @Override
+                public void menuSelected(final MenuEvent e) {
+                    toggleFunctionsDialog(false);
+                }
+
+                @Override
+                public void menuDeselected(final MenuEvent e) { }
+
+                @Override
+                public void menuCanceled(final MenuEvent e) { }
+        };
+
+        // MenuListener for functions menu
+        private final MenuListener functionsMenuListener = new MenuListener() {
+
+                @Override
+                public void menuSelected(final MenuEvent e) {
+                    toggleFunctionsDialog(true);
+                }
+
+                @Override
+                public void menuDeselected(final MenuEvent e) {
+                    if (!m_functionsListView.hasFocus()) {
+                        toggleFunctionsDialog(false);
+                    }
+                }
+
+                @Override
+                public void menuCanceled(final MenuEvent e) { }
+        };
+
+        // ListSelectionListener for the functions menu. Keeps the functions Menu selected while the user selects entries in the list
+        private final ListSelectionListener functionsListSelectionListener = new ListSelectionListener() {
+
+            @Override
+            public void valueChanged(final ListSelectionEvent e) {
+                // keep Menu selected while list gets selected
+                m_functionsMenu.setSelected(true);
+
+            }
+        };
+
+        /**
+         *  KeyAdapter for the list of functions in the functions dialog
+         *
+         * @author Johannes Schweig
+         */
+        private class FunctionsListKeyAdapter extends KeyAdapter {
+
+            @Override
+            public void keyTyped(final KeyEvent e) {
+                // find first entry starting with typed character after the selected entry
+                String key = String.valueOf(e.getKeyChar());
+                int index = -1;
+                for (int i = 0; i < m_functionsListView.getModel().getSize(); i++) {
+                    // start search at next list entry
+                    int delta = (i + m_functionsListView.getSelectedIndex() + 1) % m_functionsListView.getModel().getSize();
+                    String s = m_functionsListView.getModel().getElementAt(delta).getName();
+                    if (s.toLowerCase().startsWith(key)){
+                        index = delta;
+                        break;
+                    }
+                }
+                // if a entry is found, select it and scroll the view
+                if (index != -1) {
+                    m_functionsListView.setSelectedIndex(index);
+                    m_functionsListView.scrollRectToVisible(new Rectangle(m_functionsListView.getCellBounds(index, index)));
+                }
+            }
+
+            @Override
+            public void keyReleased(final KeyEvent e) {
+                // close dialog on ESC
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    toggleFunctionsDialog(false);
+                } else if (e.getKeyCode() == KeyEvent.VK_ENTER) { // paste manipulator if ENTER
+                    onSelectionInManipulatorList(m_functionsListView.getSelectedValue());
+                }
+            }
+
+        }
+
+        /**
+         * FocusAdapter for the list of functions. Hides the functions dialog when the functions list loses focus.
+         *
+         * @author Johannes Schweig
+         */
+        private class FunctionsListFocusAdapter extends FocusAdapter {
+
+                @Override
+                public void focusLost(final FocusEvent e) {
+                    toggleFunctionsDialog(false);
+                }
+
+        }
+        /**
+         * MouseAdapter for the list of functions. On Double click the function is pasted into the editor.
+         *
+         * @author Johannes Schweig
+         */
+        private class FunctionsListMouseAdapter extends MouseAdapter {
+
+            @Override
+            public void mouseClicked(final MouseEvent e) {
+                if (e.getClickCount() >= 2) {
+                    onSelectionInManipulatorList(m_functionsListView.getSelectedValue());
+                }
+            }
+        }
 
         EditorMenuBar() {
             super();
@@ -164,16 +332,106 @@ public class JSnippetPanel2 extends JPanel {
             m_columnsMenu.setIcon(SharedIcons.ADD_PLUS.get());
             //FIXME allow arrow traversal for menuItems
             m_columnsMenu.setMnemonic(KeyEvent.VK_C);
+            m_columnsMenu.addMenuListener(closeMenuListener);
             m_flowVarsMenu = (JMenu) getPlainComponent(new JMenu("fvar"));
             m_flowVarsMenu.setIcon(SharedIcons.ADD_PLUS.get());
             m_flowVarsMenu.setMnemonic(KeyEvent.VK_V);
+            m_flowVarsMenu.addMenuListener(closeMenuListener);
             m_functionsMenu = (JMenu) getPlainComponent(new JMenu("func"));
             m_functionsMenu.setIcon(SharedIcons.ADD_PLUS.get());
+            //TODO mnemonic not working consistently
             m_functionsMenu.setMnemonic(KeyEvent.VK_F);
+            m_functionsMenu.addMenuListener(functionsMenuListener);
             add(m_columnsMenu);
             add(m_flowVarsMenu);
             add(m_functionsMenu);
         }
+
+        /**
+         * Toggles the visibility of the functions dialog depending on parameter visible. The dialog is initialized on first use.
+         * @param visible if true makes the dialog visible, otherwise hides it.
+         */
+        private void toggleFunctionsDialog(final boolean visible) {
+            // initialize dialog on first use
+            if (m_functionsDialog == null) {
+                initFunctionsDialog();
+            }
+            // places the dialog beneath the functions menu
+            m_functionsDialog.setBounds((int) m_functionsMenu.getLocationOnScreen().getX(), (int) m_functionsMenu.getLocationOnScreen().getY() + m_functionsMenu.getHeight(), 400, 150);
+            m_functionsDialog.pack();
+            // show/hide
+            m_functionsDialog.setVisible(visible);
+            m_functionsMenu.setSelected(visible);
+            // focus textfield when hiding functionsDialog
+            if (!visible) {
+                m_expEdit.requestFocus();
+            }
+        }
+
+        /**
+         * Initializes the functions dialog. Also adds the manipulators from a ManipulationProvider.
+         */
+        private void initFunctionsDialog() {
+            // figure out the parent to be able to make the dialog modal
+            m_functionsDialog = new JDialog(getFrame(m_ndp), "", false);
+            //        m_jd.setLocationRelativeTo(m_menuBar);
+            m_functionsDialog.setUndecorated(true);
+            //TODO click on panel deselects the menu and leads to weird refresh on menu click
+            // components
+            JPanel panel = new JPanel(new GridBagLayout());
+            panel.setBorder(new EmptyBorder(8, 8, 8, 8));
+            GridBagConstraints c = new GridBagConstraints();
+            c.gridx = 0;
+            c.gridy = 0;
+            c.anchor = GridBagConstraints.BASELINE_LEADING;
+            panel.add(getPlainComponent(new JLabel("Functions"), 2), c);
+            c.gridy++;
+            c.insets = new Insets(0, 0, 8, 8);
+            m_functionsListView = (JList) getPlainComponent(new JList<Manipulator>());
+            m_functionsListView.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            m_functionsListView.setCellRenderer(new ManipulatorListCellRenderer());
+            m_functionsListView.addKeyListener(new FunctionsListKeyAdapter());
+            m_functionsListView.addFocusListener(new FunctionsListFocusAdapter());
+            m_functionsListView.getSelectionModel().addListSelectionListener(functionsListSelectionListener);
+            m_functionsListView.addMouseListener(new FunctionsListMouseAdapter());
+            DefaultListModel<Manipulator> model = new DefaultListModel<Manipulator>();
+            // update functions
+            Collection<? extends Manipulator> manipulators = m_manipProvider.getManipulators(ManipulatorProvider.ALL_CATEGORY);
+            // sort alphabetically
+            Stream<? extends Manipulator> manipStream = manipulators.stream().sorted((m1, m2) -> m1.getDisplayName().toLowerCase().compareTo(m2.getDisplayName().toLowerCase()));
+            manipStream.forEach(m -> {
+                model.addElement(m);
+                m_functionsList.add(m);
+            });
+            m_functionsListView.setModel(model);
+            panel.add(new JScrollPane(m_functionsListView), c);
+            c.gridx++;
+            c.gridy = 0;
+            c.insets = new Insets(0, 0, 8, 4);
+            panel.add(new JLabel(SharedIcons.HELP.get()), c);
+            c.gridx++;
+            c.insets = new Insets(0, 0, 8, 0);
+            panel.add(getPlainComponent(new JLabel("Help"), 2), c);
+            c.gridx = 1;
+            c.gridy++;
+            c.gridwidth = 2;
+            c.insets = new Insets(0, 0, 0, 0);
+            c.fill = GridBagConstraints.BOTH;
+            c.weightx = 1;
+            c.weighty = 1;
+            JLabel helpText = (JLabel) getPlainComponent(new JLabel(""));
+            panel.add(helpText, c);
+
+            // change help text when changing function selection
+            m_functionsListView.addListSelectionListener(e -> {
+                // restrict width to cause text to wrap
+                helpText.setText("<html><body width='200px'>" + model.get(m_functionsListView.getSelectedIndex()).getDescription() + "</body></html>");
+            });
+            m_functionsListView.setSelectionInterval(0, 0);
+
+            m_functionsDialog.add(panel);
+        }
+
 
         /**
          * Sets the menu entries for the columns menu
@@ -215,21 +473,6 @@ public class JSnippetPanel2 extends JPanel {
         }
 
         /**
-         * Sets the menu entries for the functions menu
-         * @param list list of entries to replace the current entries
-         */
-        private void updateFunctions(final Collection<? extends Manipulator> list) {
-            m_functionsList.clear();
-            m_functionsMenu.removeAll();
-            for (Manipulator m : list) {
-                m_functionsList.add(m);
-                JMenuItem menuItem = (JMenuItem) getPlainComponent(new JMenuItem(m.getName()));
-                menuItem.addActionListener(e -> onSelectionInManipulatorList(m));
-                m_functionsMenu.add(menuItem);
-            }
-        }
-
-        /**
          * @return a list with the flow variables in the menu
          */
         public ArrayList<FlowVariable> getFlowVarsList() {
@@ -242,7 +485,6 @@ public class JSnippetPanel2 extends JPanel {
         public ArrayList<Object> getColList() {
             return m_columnsList;
         }
-
     }
 
     /**
@@ -271,9 +513,6 @@ public class JSnippetPanel2 extends JPanel {
 
         initUI();
         initCompletionProvider();
-        // update manipulator list
-        m_menuBar.updateFunctions(m_manipProvider.getManipulators(ManipulatorProvider.ALL_CATEGORY));
-
     }
 
     /**
@@ -285,7 +524,6 @@ public class JSnippetPanel2 extends JPanel {
             Completion completion = new BasicCompletion(m_completionProvider, m.getName(), m.getDisplayName(), m.getDescription());
             m_completionProvider.addCompletion(completion);
         }
-
     }
 
     /**
@@ -319,6 +557,7 @@ public class JSnippetPanel2 extends JPanel {
         c.weighty = 1;
         c.insets = new Insets(4, 0, 8, 0);
         c.fill = GridBagConstraints.BOTH;
+        //TODO focus does not always return to Editorcomponent
         m_expEdit = createEditorComponent();
         JScrollPane jspExpEdit = new JScrollPane(m_expEdit);
         jspExpEdit.setPreferredSize(new Dimension(m_expEdit.getPreferredSize().width, 50));
@@ -366,6 +605,7 @@ public class JSnippetPanel2 extends JPanel {
         add(m_cardsPanel, c);
     }
 
+
     /**
      * See {@link JSnippetPanel#getExpression()}
      */
@@ -386,7 +626,7 @@ public class JSnippetPanel2 extends JPanel {
             enter = m_completionProvider.escapeColumnName(name);
         }
         m_expEdit.replaceSelection(enter);
-            m_expEdit.requestFocus();
+        m_expEdit.requestFocus();
     }
 
     /**
@@ -421,8 +661,7 @@ public class JSnippetPanel2 extends JPanel {
     /**
      * See {@link JSnippetPanel#onSelectionInManipulatorList(Object)}
      */
-    protected void onSelectionInManipulatorList(final Object selected) {
-        Manipulator manipulator = (Manipulator)selected;
+    protected void onSelectionInManipulatorList(final Manipulator manipulator) {
         String selectedString = m_expEdit.getSelectedText();
         StringBuilder newStr = new StringBuilder(manipulator.getName());
         newStr.append('(');
@@ -441,7 +680,7 @@ public class JSnippetPanel2 extends JPanel {
                 caretPos - newStr.toString().length()));
         }
 
-            m_expEdit.requestFocus();
+        m_expEdit.requestFocus();
     }
 
     /**
@@ -562,12 +801,42 @@ public class JSnippetPanel2 extends JPanel {
     }
 
     /**
-     * Returns the component with plain font weight.
+     * Returns the component with plain font weight and larger or smaller font size.
      * @param c the passed component
+     * @param s number controlling the font size (positive increases font size, negative decreases font size)
      * @return the component with plain font weight
      */
-    public JComponent getPlainComponent(final JComponent c) {
-        c.setFont(new Font(getFont().getName(), Font.PLAIN, getFont().getSize()));
+    public JComponent getPlainComponent(final JComponent c, final int ...s) {
+        if (s.length > 0) {
+            c.setFont(new Font(getFont().getName(), Font.PLAIN, getFont().getSize() + s[0]));
+        } else {
+            c.setFont(new Font(getFont().getName(), Font.PLAIN, getFont().getSize()));
+        }
         return c;
+    }
+
+    /**
+     * Sets the {@link NodeDialogPane} for this Panel. This is important to instantiate the functions dialog on the right {@link Frame}.
+     * @param ndp
+     */
+    public void setNodeDialogPane(final NodeDialogPane ndp) {
+        m_ndp = ndp;
+    }
+
+    /**
+     * @param ndp a NodeDialogPane
+     * @return the frame of the NodeDialogPane
+     */
+    private static Frame getFrame(final NodeDialogPane ndp) {
+        Frame f = null;
+		Container cont = ndp.getPanel().getParent();
+		while (cont != null) {
+		    if (cont instanceof Frame) {
+		        f = (Frame) cont;
+		        break;
+		    }
+		    cont = cont.getParent();
+		}
+		return f;
     }
 }

@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Testcase for org.knime.product
-Bundle-SymbolicName: org.knime.product.testing;singleton:=true
+Bundle-SymbolicName: org.knime.product.tests;singleton:=true
 Bundle-Version: 3.6.0.qualifier
 Fragment-Host: org.knime.product;bundle-version="[3.6.0,4.0.0)"
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8

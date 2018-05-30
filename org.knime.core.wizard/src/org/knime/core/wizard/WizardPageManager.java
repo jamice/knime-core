@@ -326,7 +326,14 @@ public final class WizardPageManager extends AbstractPageManager implements View
     public String updateRequestStatus(final String monitorID) {
         ViewRequestRegistry registry = ViewRequestRegistry.getInstance();
         if (registry.isJobRegistered(monitorID)) {
-            //TODO I need to be brought to life
+            ViewResponseMonitor<? extends WizardViewResponse> monitor = registry.getJob(monitorID);
+            if (monitor != null) {
+                if (monitor.isCancelled() || monitor.isExecutionFailed()
+                    || (monitor.isExecutionFinished() && monitor.isResponseAvailable())) {
+                    registry.removeJob(monitor.getId());
+                }
+                return serializeResponseMonitor(monitor);
+            }
         }
         return null;
     }

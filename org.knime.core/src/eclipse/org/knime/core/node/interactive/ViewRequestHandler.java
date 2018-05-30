@@ -62,7 +62,7 @@ import org.knime.core.node.NodeModel;
  * @param <RES> The concrete class of the response object.
  * @since 3.6
  */
-public interface ViewRequestHandler<REQ extends ViewRequest<RES>, RES extends ViewResponse> {
+public interface ViewRequestHandler<REQ extends ViewRequest, RES extends ViewResponse> {
 
     /**
      * Handles a view-initialized request. This can be used for

@@ -58,7 +58,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -446,26 +445,23 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
                     ViewResponseMonitorUpdateEventType type = event.getType();
                     pushRequestUpdate(serializeResponseMonitor(monitor));
                     if (ViewResponseMonitorUpdateEventType.STATUS_UPDATE == type) {
-                        if (monitor.isExecutionFailed() || monitor.isCancelled()
-                            || (monitor.isExecutionFinished() && monitor.isResponseAvailable())) {
+                        if (monitor.isExecutionFinished() && monitor.isResponseAvailable()) {
+                            overallExec.setProgress(1);
+                            overallExec.setMessage((String)null);
+                            if (m_viewRequestMap.containsKey(requestID)) {
+                                respondToViewRequest(monitor.getResponse().get());
+                                m_viewRequestMap.remove(requestID);
+                            }
+                        }
+                        else if (monitor.isExecutionFailed() || monitor.isCancelled()) {
                             m_viewRequestMap.remove(requestID);
                         }
                     }
                 }
             });
-            m_viewRequestMap.put(requestID, requestJob);
 
-            CompletableFuture<? extends WizardViewResponse> future =
-                requestJob.start((WizardViewRequestHandler)model, req);
-            future.thenAcceptAsync(res -> {
-                overallExec.setProgress(1);
-                overallExec.setMessage((String)null);
-                // if not resolved, cancelled or failed yet
-                if (m_viewRequestMap.containsKey(requestID)) {
-                    respondToViewRequest(res);
-                    m_viewRequestMap.remove(requestID);
-                }
-            });
+            m_viewRequestMap.put(requestID, requestJob);
+            requestJob.start((WizardViewRequestHandler)model, req);
             return serializeResponseMonitor(requestJob);
         } catch (Exception ex) {
             LOGGER.error(errorString + ex, ex);
@@ -481,7 +477,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
         }
     }
 
-    private int tryGetSequenceFromRequest(final String jsonRequest) throws JsonProcessingException, IOException {
+    private static int tryGetSequenceFromRequest(final String jsonRequest) throws JsonProcessingException,
+        IOException {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode node = mapper.readTree(jsonRequest);
         JsonNode sequenceNode = node.get("sequence");
@@ -538,7 +535,8 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     }
 
 
-    private String serializeResponseMonitor(final ViewResponseMonitor<? extends WizardViewResponse> monitor) {
+    private static String serializeResponseMonitor(
+        final ViewResponseMonitor<? extends WizardViewResponse> monitor) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new Jdk8Module());
         try {
@@ -550,9 +548,7 @@ public abstract class AbstractWizardNodeView<T extends ViewableModel & WizardNod
     }
 
     private final void respondToViewRequest(final WizardViewResponse response) {
-        OutputStream stream;
-        try {
-            stream = response.saveToStream();
+        try (OutputStream stream = response.saveToStream()) {
             if (stream instanceof ByteArrayOutputStream) {
                 String responseString = ((ByteArrayOutputStream)stream).toString("UTF-8");
                 respondToViewRequest(responseString);

@@ -60,7 +60,7 @@ import org.knime.core.node.interactive.ViewRequestHandler;
  * @param <RES> The concrete class of the response object.
  * @since 3.6
  */
-public interface WizardViewRequestHandler<REQ extends WizardViewRequest<RES>, RES extends WizardViewResponse>
+public interface WizardViewRequestHandler<REQ extends WizardViewRequest, RES extends WizardViewResponse>
     extends ViewRequestHandler<REQ, RES> {
 
     /**

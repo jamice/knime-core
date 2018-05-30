@@ -67,7 +67,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
  */
 @JsonAutoDetect
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-public class SubnodeViewResponse extends JSONViewResponse<SubnodeViewRequest, SubnodeViewResponse> {
+public class SubnodeViewResponse extends JSONViewResponse<SubnodeViewRequest> {
 
     private String m_nodeID;
 
@@ -81,7 +81,8 @@ public class SubnodeViewResponse extends JSONViewResponse<SubnodeViewRequest, Su
      * @param nodeID the node id of the view the response is for
      * @param jsonResponse the JSON serialized response for the specific view
      */
-    public SubnodeViewResponse(final SubnodeViewRequest request, final String nodeID, final String jsonResponse) {
+    public SubnodeViewResponse(final SubnodeViewRequest request, final String nodeID,
+        final String jsonResponse) {
         super(request);
         m_nodeID = nodeID;
         m_jsonResponse = jsonResponse;

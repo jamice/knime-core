@@ -290,9 +290,7 @@ public abstract class AbstractPageManager {
      */
     protected String serializeViewResponse(final WebViewContent response) {
         if (response != null) {
-            OutputStream stream;
-            try {
-                stream = response.saveToStream();
+            try (OutputStream stream = response.saveToStream()) {
                 if (stream instanceof ByteArrayOutputStream) {
                     return ((ByteArrayOutputStream)stream).toString("UTF-8");
                 }

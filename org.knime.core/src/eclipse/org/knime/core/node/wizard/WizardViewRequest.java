@@ -58,7 +58,7 @@ import org.knime.core.node.web.WebViewContent;
  * @param <RES> The concrete view content implementation acting as result value of a concrete class of this operation.
  * @since 3.6
  */
-public interface WizardViewRequest<RES extends WizardViewResponse> extends ViewRequest<RES>, WebViewContent {
+public interface WizardViewRequest extends ViewRequest, WebViewContent {
 
     /**
      * A sequence which acts as the identifier to a single view implementation and order mark

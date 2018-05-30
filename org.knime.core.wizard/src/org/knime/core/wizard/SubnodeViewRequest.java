@@ -64,7 +64,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
  * @since 3.6
  */
 @JsonAutoDetect
-public class SubnodeViewRequest extends JSONViewRequest<SubnodeViewRequest, SubnodeViewResponse> {
+public class SubnodeViewRequest extends JSONViewRequest {
 
     static final String CFG_NODE_ID = "nodeID";
     private static final String CFG_JSON_REQUEST = "jsonRequest";

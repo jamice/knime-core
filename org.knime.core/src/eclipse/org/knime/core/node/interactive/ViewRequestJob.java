@@ -48,8 +48,6 @@
  */
 package org.knime.core.node.interactive;
 
-import java.util.concurrent.CompletableFuture;
-
 import org.knime.core.node.wizard.WizardViewRequest;
 import org.knime.core.node.wizard.WizardViewRequestHandler;
 import org.knime.core.node.wizard.WizardViewResponse;
@@ -78,10 +76,9 @@ public interface ViewRequestJob<RES extends WizardViewResponse> {
      * @param handler A {@link ViewRequestHandler} instance able to process the corresponding request
      * @param request The {@link ViewRequest} to be processed
      * @param <REQ> The actual class of the view request
-     * @return A {@link CompletableFuture} used to handle the asynchronous processing of the request
      */
-    public <REQ extends WizardViewRequest<RES>> CompletableFuture<RES>
-        start(final WizardViewRequestHandler<REQ, RES> handler, final REQ request);
+    public <REQ extends WizardViewRequest> void start(final WizardViewRequestHandler<REQ, RES> handler,
+        final REQ request);
 
     /**
      * Cancels the view request processing. This method has no effect on already completed or not started

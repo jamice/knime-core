@@ -51,13 +51,10 @@ package org.knime.core.node.wizard;
 import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.EventObject;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionMonitor;
@@ -66,7 +63,6 @@ import org.knime.core.node.interactive.ViewRequestJob;
 import org.knime.core.node.interactive.ViewResponse;
 import org.knime.core.node.interactive.ViewResponseMonitor;
 import org.knime.core.node.workflow.NodeContext;
-import org.knime.core.util.Pair;
 
 /**
  * Default implementation of a job which represents the processing of a view request in an asynchronous fashion.
@@ -92,7 +88,6 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
     private final ExecutionMonitor m_monitor;
     private final List<ViewResponseMonitorUpdateListener> m_listeners;
     private final DefaultViewRequestJob<RES> m_job;
-    private final Queue<Pair<Consumer<RES>, Boolean>> m_postProcessQueue;
     private final NodeContext m_context;
     private final Object m_block = new Object();
 
@@ -101,6 +96,7 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
      *
      * @param sequence the sequence of the corresponding request, used for identification in the view implementation and
      *            ordering
+     * @param exec an execution monitor used to query progress and possible cancellation
      */
     public DefaultViewRequestJob(final int sequence, final ExecutionMonitor exec) {
         m_id = UUID.randomUUID().toString();
@@ -108,7 +104,6 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
         m_monitor = exec;
         m_listeners = new ArrayList<ViewResponseMonitorUpdateListener>(1);
         m_job = this;
-        m_postProcessQueue = new LinkedList<Pair<Consumer<RES>, Boolean>>();
         m_context = NodeContext.getContext();
     }
 
@@ -129,11 +124,18 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
     }
 
     /**
+     * Removes all registered listeners so that they do not receive any more update events.
+     */
+    public void removeAllUpdateListeners() {
+        m_listeners.clear();
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
-    public <REQ extends WizardViewRequest<RES>> CompletableFuture<RES>
-        start(final WizardViewRequestHandler<REQ, RES> handler, final REQ request) {
+    public <REQ extends WizardViewRequest> void start(final WizardViewRequestHandler<REQ, RES> handler,
+        final REQ request) {
         m_requestSequence = request.getSequence();
         ViewResponseMonitorUpdateEvent pEvent =
                 new ViewResponseMonitorUpdateEvent(m_job, ViewResponseMonitorUpdateEventType.PROGRESS_UPDATE);
@@ -166,7 +168,6 @@ public class DefaultViewRequestJob<RES extends WizardViewResponse> implements Vi
                 new ViewResponseMonitorUpdateEvent(m_job, ViewResponseMonitorUpdateEventType.STATUS_UPDATE);
             m_listeners.forEach((listener) -> listener.monitorUpdate(sEvent));
         });
-        return m_future;
     }
 
     /**
